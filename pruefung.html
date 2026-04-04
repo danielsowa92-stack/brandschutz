@@ -1,0 +1,341 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>Brandschutz-Prüfung</title>
+<style>
+  :root {
+    --bg: #f5f4f0;
+    --surface: #ffffff;
+    --border: #e2e0d8;
+    --text: #1a1a18;
+    --muted: #6b6b65;
+    --accent: #c8381e;
+    --accent-light: #fdf0ed;
+    --ok: #2d6a3f;
+    --ok-bg: #eaf3de;
+    --ok-border: #9fe1cb;
+    --warn: #854f0b;
+    --warn-bg: #faeeda;
+    --warn-border: #fac775;
+    --danger: #a32d2d;
+    --danger-bg: #fcebeb;
+    --danger-border: #f7c1c1;
+    --radius: 12px;
+    --radius-sm: 8px;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+  body { font-family: 'Helvetica Neue', Arial, sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; font-size: 16px; }
+
+  .topbar { background: var(--accent); color: white; padding: 14px 1.25rem; display: flex; align-items: center; gap: 10px; position: sticky; top: 0; z-index: 10; }
+  .topbar-icon { width: 28px; height: 28px; opacity: 0.9; }
+  .topbar-title { font-weight: 700; font-size: 16px; }
+  .topbar-sub { font-size: 12px; opacity: 0.75; }
+
+  .page { max-width: 540px; margin: 0 auto; padding: 1.25rem; }
+
+  .door-card { background: white; border-radius: var(--radius); padding: 1.25rem; margin-bottom: 1rem; border: 1px solid var(--border); }
+  .door-badge { display: inline-block; background: var(--accent-light); color: var(--accent); font-size: 13px; font-weight: 700; padding: 4px 10px; border-radius: 20px; margin-bottom: 8px; }
+  .door-title { font-size: 20px; font-weight: 700; margin-bottom: 4px; }
+  .door-meta { font-size: 14px; color: var(--muted); line-height: 1.6; }
+  .door-typ { display: inline-block; background: var(--bg); border: 1px solid var(--border); font-size: 12px; padding: 2px 8px; border-radius: 4px; margin-top: 8px; }
+  .last-check { margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--border); font-size: 13px; color: var(--muted); }
+
+  .section { margin-bottom: 1rem; }
+  .section-label { font-size: 13px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 10px; }
+
+  .status-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
+  .status-btn { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; padding: 16px 8px; border-radius: var(--radius-sm); border: 2px solid var(--border); background: white; cursor: pointer; transition: all 0.15s; font-size: 13px; font-weight: 600; color: var(--muted); line-height: 1.2; text-align: center; }
+  .status-btn:active { transform: scale(0.96); }
+  .status-btn .icon { font-size: 24px; }
+  .status-btn.selected-ok { background: var(--ok-bg); border-color: var(--ok); color: var(--ok); }
+  .status-btn.selected-mangel { background: var(--warn-bg); border-color: var(--warn); color: var(--warn); }
+  .status-btn.selected-dringend { background: var(--danger-bg); border-color: var(--danger); color: var(--danger); }
+
+  .checklist { background: white; border-radius: var(--radius); border: 1px solid var(--border); overflow: hidden; }
+  .check-item { display: flex; align-items: center; gap: 12px; padding: 14px 1.25rem; border-bottom: 1px solid var(--border); cursor: pointer; transition: background 0.1s; }
+  .check-item:last-child { border-bottom: none; }
+  .check-item:active { background: var(--bg); }
+  .check-box { width: 22px; height: 22px; border: 2px solid var(--border); border-radius: 5px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; transition: all 0.15s; }
+  .check-box.checked { background: var(--ok); border-color: var(--ok); }
+  .check-box.checked::after { content: '✓'; color: white; font-size: 13px; font-weight: 700; }
+  .check-label { font-size: 15px; color: var(--text); flex: 1; }
+
+  input[type=text], textarea {
+    width: 100%; padding: 12px 14px; border: 1px solid var(--border); border-radius: var(--radius-sm);
+    font-size: 16px; font-family: inherit; color: var(--text); background: white;
+    outline: none; transition: border-color 0.15s;
+  }
+  input[type=text]:focus, textarea:focus { border-color: var(--accent); }
+  textarea { resize: vertical; min-height: 80px; }
+
+  .save-btn { width: 100%; padding: 16px; background: var(--accent); color: white; border: none; border-radius: var(--radius); font-size: 17px; font-weight: 700; cursor: pointer; font-family: inherit; transition: all 0.15s; margin-top: 0.5rem; }
+  .save-btn:active { transform: scale(0.98); background: #a8301a; }
+  .save-btn:disabled { background: #ccc; cursor: default; transform: none; }
+
+  .success-screen { display: none; flex-direction: column; align-items: center; justify-content: center; min-height: 60vh; text-align: center; }
+  .success-icon { width: 72px; height: 72px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 36px; margin-bottom: 1.25rem; }
+  .success-title { font-size: 24px; font-weight: 700; margin-bottom: 8px; }
+  .success-sub { font-size: 15px; color: var(--muted); line-height: 1.6; }
+  .success-btn { margin-top: 2rem; padding: 12px 28px; border: 2px solid var(--text); border-radius: var(--radius-sm); background: transparent; font-size: 15px; font-weight: 600; font-family: inherit; cursor: pointer; }
+
+  .not-found { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 70vh; text-align: center; }
+  .not-found-icon { font-size: 48px; margin-bottom: 1rem; opacity: 0.4; }
+
+  .field-group { background: white; border-radius: var(--radius); border: 1px solid var(--border); padding: 1.25rem; }
+  .field-group label { font-size: 14px; font-weight: 600; color: var(--muted); display: block; margin-bottom: 6px; }
+  .field-group label + * { margin-top: 0; }
+  .field-spacer { height: 14px; }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <svg class="topbar-icon" viewBox="0 0 24 24" fill="white"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/></svg>
+  <div>
+    <div class="topbar-title">Brandschutz-Prüfung</div>
+    <div class="topbar-sub" id="topbar-date"></div>
+  </div>
+</div>
+
+<div class="page">
+  <!-- NOT FOUND -->
+  <div id="screen-notfound" style="display:none">
+    <div class="not-found">
+      <div class="not-found-icon">🚪</div>
+      <div style="font-size:20px;font-weight:700;margin-bottom:8px">Tür nicht gefunden</div>
+      <div style="font-size:15px;color:var(--muted);line-height:1.6">Die Tür-ID "<strong id="nf-id"></strong>" wurde nicht gefunden.<br>Bitte zuerst im Verwaltungsbereich anlegen.</div>
+      <a href="index.html" style="margin-top:2rem;display:inline-block;padding:12px 24px;border:2px solid var(--text);border-radius:var(--radius-sm);text-decoration:none;font-weight:600;color:var(--text)">Zur Verwaltung</a>
+    </div>
+  </div>
+
+  <!-- FORM -->
+  <div id="screen-form" style="display:none">
+    <div class="door-card">
+      <div class="door-badge" id="f-id"></div>
+      <div class="door-title" id="f-name"></div>
+      <div class="door-meta" id="f-meta"></div>
+      <div class="door-typ" id="f-typ" style="display:none"></div>
+      <div class="last-check" id="f-last"></div>
+    </div>
+
+    <div class="section">
+      <div class="section-label">Prüfergebnis *</div>
+      <div class="status-grid">
+        <button class="status-btn" onclick="setStatus('OK',this)" id="btn-ok">
+          <span class="icon">✅</span>Alles OK
+        </button>
+        <button class="status-btn" onclick="setStatus('Mangel',this)" id="btn-mangel">
+          <span class="icon">⚠️</span>Mangel
+        </button>
+        <button class="status-btn" onclick="setStatus('Dringend',this)" id="btn-dringend">
+          <span class="icon">🚨</span>Dringend
+        </button>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-label">Checkliste</div>
+      <div class="checklist" id="checklist">
+        <div class="check-item" onclick="toggleCheck(this)">
+          <div class="check-box"></div><span class="check-label">Selbstschlussmechanismus funktioniert</span>
+        </div>
+        <div class="check-item" onclick="toggleCheck(this)">
+          <div class="check-box"></div><span class="check-label">Tür schließt vollständig</span>
+        </div>
+        <div class="check-item" onclick="toggleCheck(this)">
+          <div class="check-box"></div><span class="check-label">Türdichtung intakt</span>
+        </div>
+        <div class="check-item" onclick="toggleCheck(this)">
+          <div class="check-box"></div><span class="check-label">Türscharniere in Ordnung</span>
+        </div>
+        <div class="check-item" onclick="toggleCheck(this)">
+          <div class="check-box"></div><span class="check-label">Kein Keil oder Feststeller vorhanden</span>
+        </div>
+        <div class="check-item" onclick="toggleCheck(this)">
+          <div class="check-box"></div><span class="check-label">Beschriftung / Kennzeichnung lesbar</span>
+        </div>
+        <div class="check-item" onclick="toggleCheck(this)">
+          <div class="check-box"></div><span class="check-label">Freier Fluchtweg sichergestellt</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="field-group">
+        <label>Prüfer</label>
+        <input type="text" id="pruefer" placeholder="Vor- und Nachname" />
+        <div class="field-spacer"></div>
+        <label>Bemerkungen / Mängelbeschreibung</label>
+        <textarea id="bemerkung" placeholder="Was wurde festgestellt? Was muss repariert oder gewartet werden?"></textarea>
+      </div>
+    </div>
+
+    <button class="save-btn" onclick="saveCheck()" id="save-btn">Prüfung speichern</button>
+  </div>
+
+  <!-- SUCCESS -->
+  <div id="screen-success" class="success-screen">
+    <div class="success-icon" id="success-icon"></div>
+    <div class="success-title" id="success-title"></div>
+    <div class="success-sub" id="success-sub"></div>
+    <button class="success-btn" onclick="resetForm()">Neue Prüfung</button>
+  </div>
+</div>
+
+<script>
+const params = new URLSearchParams(window.location.search);
+const doorId = params.get('tuer') || params.get('door') || params.get('id') || '';
+
+let doors = [], checks = [];
+let selectedStatus = '';
+
+function loadData() {
+  try { doors = JSON.parse(localStorage.getItem('bs_doors') || '[]'); } catch(e){ doors=[]; }
+  try { checks = JSON.parse(localStorage.getItem('bs_checks') || '[]'); } catch(e){ checks=[]; }
+}
+
+function saveData() {
+  localStorage.setItem('bs_doors', JSON.stringify(doors));
+  localStorage.setItem('bs_checks', JSON.stringify(checks));
+}
+
+function init() {
+  loadData();
+  const now = new Date();
+  document.getElementById('topbar-date').textContent = now.toLocaleDateString('de-DE', {weekday:'long', day:'numeric', month:'long'});
+
+  if (!doorId) {
+    // No ID in URL — show a selector
+    showSelector();
+    return;
+  }
+
+  const door = doors.find(d => d.id === doorId);
+  if (!door) {
+    document.getElementById('nf-id').textContent = doorId;
+    show('notfound');
+    return;
+  }
+
+  fillForm(door);
+  show('form');
+}
+
+function fillForm(door) {
+  document.getElementById('f-id').textContent = door.id;
+  document.getElementById('f-name').textContent = door.name;
+  const meta = [door.standort, door.firma].filter(Boolean).join(' · ');
+  document.getElementById('f-meta').textContent = meta;
+  if (door.typ) {
+    document.getElementById('f-typ').textContent = door.typ;
+    document.getElementById('f-typ').style.display = 'inline-block';
+  }
+  const lastChecks = checks.filter(c => c.doorId === door.id).sort((a,b) => b.ts - a.ts);
+  const last = lastChecks[0];
+  document.getElementById('f-last').innerHTML = last
+    ? `Letzte Prüfung: <strong>${new Date(last.ts).toLocaleDateString('de-DE')} um ${new Date(last.ts).toLocaleTimeString('de-DE',{hour:'2-digit',minute:'2-digit'})} Uhr</strong> — ${last.status} (${last.pruefer||'unbekannt'})`
+    : 'Noch nie geprüft';
+}
+
+function show(screen) {
+  ['notfound','form','success'].forEach(s => {
+    document.getElementById('screen-' + s).style.display = s === screen ? (s==='success'?'flex':'block') : 'none';
+  });
+}
+
+function setStatus(val, btn) {
+  selectedStatus = val;
+  document.querySelectorAll('.status-btn').forEach(b => b.className = 'status-btn');
+  const cls = val === 'OK' ? 'selected-ok' : val === 'Mangel' ? 'selected-mangel' : 'selected-dringend';
+  btn.className = 'status-btn ' + cls;
+}
+
+function toggleCheck(el) {
+  const box = el.querySelector('.check-box');
+  box.classList.toggle('checked');
+}
+
+function getCheckedItems() {
+  const items = [];
+  document.querySelectorAll('.check-item').forEach(el => {
+    if (el.querySelector('.check-box').classList.contains('checked')) {
+      items.push(el.querySelector('.check-label').textContent);
+    }
+  });
+  return items;
+}
+
+function saveCheck() {
+  if (!selectedStatus) { alert('Bitte Prüfergebnis auswählen.'); return; }
+  loadData();
+  const door = doors.find(d => d.id === doorId);
+  if (!door) return;
+  const pruefer = document.getElementById('pruefer').value.trim();
+  const bemerkung = document.getElementById('bemerkung').value.trim();
+  const checkedItems = getCheckedItems();
+
+  checks.push({
+    ts: Date.now(),
+    doorId: door.id,
+    doorName: door.name,
+    standort: door.standort,
+    firma: door.firma,
+    pruefer: pruefer || '–',
+    status: selectedStatus,
+    bemerkung: bemerkung,
+    checklist: checkedItems
+  });
+  saveData();
+  showSuccess(selectedStatus, door, pruefer);
+}
+
+function showSuccess(status, door, pruefer) {
+  const icons = { OK: { icon: '✅', bg: '#eaf3de', title: 'Prüfung gespeichert', sub: 'Tür <strong>' + door.id + '</strong> wurde als <strong>OK</strong> protokolliert.' }, Mangel: { icon: '⚠️', bg: '#faeeda', title: 'Mangel protokolliert', sub: 'Tür <strong>' + door.id + '</strong> hat einen Mangel. Bitte Reparatur einplanen.' }, Dringend: { icon: '🚨', bg: '#fcebeb', title: 'Dringender Mangel!', sub: 'Tür <strong>' + door.id + '</strong> muss sofort behoben werden.' } };
+  const cfg = icons[status];
+  document.getElementById('success-icon').style.background = cfg.bg;
+  document.getElementById('success-icon').textContent = cfg.icon;
+  document.getElementById('success-title').textContent = cfg.title;
+  document.getElementById('success-sub').innerHTML = cfg.sub + '<br><br>Gespeichert am ' + new Date().toLocaleDateString('de-DE') + ' um ' + new Date().toLocaleTimeString('de-DE',{hour:'2-digit',minute:'2-digit'}) + ' Uhr' + (pruefer ? ' von ' + pruefer : '') + '.';
+  show('success');
+}
+
+function resetForm() {
+  selectedStatus = '';
+  document.querySelectorAll('.status-btn').forEach(b => b.className = 'status-btn');
+  document.querySelectorAll('.check-box').forEach(b => b.classList.remove('checked'));
+  document.getElementById('pruefer').value = '';
+  document.getElementById('bemerkung').value = '';
+  loadData();
+  const door = doors.find(d => d.id === doorId);
+  if (door) fillForm(door);
+  show('form');
+}
+
+function showSelector() {
+  // No door ID in URL — show a list of all doors
+  if (!doors.length) {
+    document.getElementById('screen-notfound').style.display = 'block';
+    document.getElementById('nf-id').textContent = '(keine)';
+    return;
+  }
+  const page = document.querySelector('.page');
+  page.innerHTML = `
+    <div style="margin-bottom:1rem">
+      <div style="font-size:18px;font-weight:700;margin-bottom:4px">Tür auswählen</div>
+      <div style="font-size:14px;color:var(--muted)">Normalerweise öffnet sich die richtige Tür automatisch per QR-Code-Scan.</div>
+    </div>
+    <div style="background:white;border-radius:var(--radius);border:1px solid var(--border);overflow:hidden">
+      ${doors.map(d => `<a href="pruefung.html?tuer=${encodeURIComponent(d.id)}" style="display:block;padding:14px 1.25rem;border-bottom:1px solid var(--border);text-decoration:none;color:var(--text)">
+        <span style="background:var(--accent-light);color:var(--accent);font-size:12px;font-weight:700;padding:2px 8px;border-radius:4px;margin-right:6px">${d.id}</span>
+        <strong>${d.name}</strong><br>
+        <span style="font-size:13px;color:var(--muted);margin-left:2px">${[d.standort,d.firma].filter(Boolean).join(' · ')}</span>
+      </a>`).join('')}
+    </div>`;
+}
+
+init();
+</script>
+</body>
+</html>

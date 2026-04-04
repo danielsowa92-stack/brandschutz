@@ -1,0 +1,478 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Brandschutz-Prüfung | Verwaltung</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<style>
+  :root {
+    --bg: #f5f4f0;
+    --surface: #ffffff;
+    --border: #e2e0d8;
+    --text: #1a1a18;
+    --muted: #6b6b65;
+    --accent: #c8381e;
+    --accent-light: #fdf0ed;
+    --ok: #2d6a3f;
+    --ok-bg: #eaf3de;
+    --warn: #854f0b;
+    --warn-bg: #faeeda;
+    --danger: #a32d2d;
+    --danger-bg: #fcebeb;
+    --radius: 10px;
+    --radius-sm: 6px;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Helvetica Neue', Arial, sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; font-size: 15px; }
+
+  header { background: var(--surface); border-bottom: 1px solid var(--border); padding: 0 2rem; display: flex; align-items: center; justify-content: space-between; height: 58px; position: sticky; top: 0; z-index: 100; }
+  .logo { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 16px; letter-spacing: -0.3px; }
+  .logo-icon { width: 30px; height: 30px; background: var(--accent); border-radius: 6px; display: flex; align-items: center; justify-content: center; }
+  .logo-icon svg { width: 18px; height: 18px; fill: white; }
+  .header-sub { font-size: 12px; color: var(--muted); font-weight: 400; }
+
+  .container { max-width: 1100px; margin: 0 auto; padding: 2rem 1.5rem; }
+
+  .tabs { display: flex; gap: 0; border-bottom: 1px solid var(--border); margin-bottom: 2rem; }
+  .tab { padding: 10px 20px; font-size: 14px; font-weight: 500; cursor: pointer; border: none; background: none; color: var(--muted); border-bottom: 2px solid transparent; margin-bottom: -1px; transition: color 0.15s; }
+  .tab:hover { color: var(--text); }
+  .tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+  .panel { display: none; } .panel.active { display: block; }
+
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 1.5rem; margin-bottom: 1rem; }
+  .card-title { font-weight: 600; font-size: 15px; margin-bottom: 1rem; }
+
+  label { font-size: 13px; color: var(--muted); display: block; margin-bottom: 5px; margin-top: 14px; font-weight: 500; }
+  label:first-child { margin-top: 0; }
+  input[type=text], select, textarea {
+    width: 100%; padding: 9px 12px; border: 1px solid var(--border); border-radius: var(--radius-sm);
+    font-size: 14px; font-family: inherit; color: var(--text); background: var(--bg);
+    transition: border-color 0.15s; outline: none;
+  }
+  input[type=text]:focus, select:focus, textarea:focus { border-color: var(--accent); background: white; }
+  textarea { resize: vertical; }
+
+  .btn { display: inline-flex; align-items: center; gap: 6px; padding: 9px 18px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: white; font-size: 14px; font-weight: 500; cursor: pointer; color: var(--text); transition: all 0.15s; font-family: inherit; }
+  .btn:hover { background: var(--bg); }
+  .btn-primary { background: var(--accent); color: white; border-color: var(--accent); }
+  .btn-primary:hover { background: #a8301a; }
+  .btn-sm { padding: 5px 12px; font-size: 13px; }
+  .btn-danger { color: var(--danger); border-color: #f0c0c0; }
+  .btn-danger:hover { background: var(--danger-bg); }
+
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .grid4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 1.5rem; }
+  @media(max-width: 700px) { .grid2 { grid-template-columns: 1fr; } .grid4 { grid-template-columns: repeat(2,1fr); } }
+
+  .stat-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 1rem 1.25rem; }
+  .stat-num { font-size: 28px; font-weight: 700; line-height: 1; margin-bottom: 4px; }
+  .stat-label { font-size: 12px; color: var(--muted); font-weight: 500; text-transform: uppercase; letter-spacing: 0.4px; }
+
+  .badge { display: inline-block; padding: 3px 10px; border-radius: 20px; font-size: 12px; font-weight: 600; }
+  .badge-ok { background: var(--ok-bg); color: var(--ok); }
+  .badge-mangel { background: var(--warn-bg); color: var(--warn); }
+  .badge-dringend { background: var(--danger-bg); color: var(--danger); }
+
+  table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  th { text-align: left; padding: 10px 14px; font-size: 12px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.4px; border-bottom: 1px solid var(--border); }
+  td { padding: 11px 14px; border-bottom: 1px solid var(--border); color: var(--text); }
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background: var(--bg); }
+
+  .door-row { display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 1rem; padding: 14px 0; border-bottom: 1px solid var(--border); }
+  .door-row:last-child { border-bottom: none; }
+  .door-id { display: inline-block; background: var(--accent-light); color: var(--accent); font-size: 12px; font-weight: 700; padding: 2px 8px; border-radius: 4px; margin-bottom: 3px; }
+  .door-name { font-weight: 600; font-size: 14px; }
+  .door-meta { font-size: 13px; color: var(--muted); margin-top: 2px; }
+
+  .qr-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 16px; }
+  .qr-card { background: white; border: 1px solid var(--border); border-radius: var(--radius); padding: 1.25rem; display: flex; flex-direction: column; align-items: center; gap: 10px; text-align: center; }
+  .qr-card canvas, .qr-card img { border-radius: 4px; }
+  .qr-door-id { font-weight: 700; font-size: 14px; color: var(--accent); }
+  .qr-door-name { font-size: 12px; color: var(--muted); }
+  .url-hint { font-size: 10px; color: #bbb; word-break: break-all; margin-top: 4px; }
+
+  .url-config { background: #1a1a18; color: #e8e6df; border-radius: var(--radius); padding: 1.5rem; margin-bottom: 1.5rem; font-family: 'Courier New', monospace; font-size: 13px; }
+  .url-config label { color: #888; font-family: inherit; }
+  .url-config input { background: #2a2a28; border-color: #444; color: #e8e6df; font-family: 'Courier New', monospace; }
+  .url-config input:focus { border-color: var(--accent); background: #333; }
+
+  .empty { text-align: center; padding: 3rem 1rem; color: var(--muted); font-size: 14px; }
+  .empty svg { width: 40px; height: 40px; opacity: 0.3; margin-bottom: 0.75rem; display: block; margin-left: auto; margin-right: auto; }
+
+  #toast { position: fixed; bottom: 2rem; right: 2rem; background: #1a1a18; color: white; padding: 12px 20px; border-radius: var(--radius-sm); font-size: 14px; opacity: 0; transition: opacity 0.2s; pointer-events: none; z-index: 999; }
+  #toast.show { opacity: 1; }
+
+  .filter-row { display: flex; gap: 8px; margin-bottom: 1rem; flex-wrap: wrap; }
+  .filter-row select { width: auto; min-width: 140px; background: white; }
+
+  @media print {
+    header, .tabs, .btn, .url-config { display: none !important; }
+    .qr-card { break-inside: avoid; border: 1px solid #ccc; }
+    body { background: white; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">
+    <div class="logo-icon">
+      <svg viewBox="0 0 24 24"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/></svg>
+    </div>
+    Brandschutz-Prüfung
+    <span class="header-sub">Verwaltung</span>
+  </div>
+  <div style="font-size:13px;color:var(--muted)" id="header-date"></div>
+</header>
+
+<div class="container">
+  <div class="tabs">
+    <button class="tab active" onclick="showTab('tueren',this)">Türen</button>
+    <button class="tab" onclick="showTab('protokoll',this)">Protokoll</button>
+    <button class="tab" onclick="showTab('qrcodes',this)">QR-Codes</button>
+    <button class="tab" onclick="showTab('einstellungen',this)">Einstellungen</button>
+  </div>
+
+  <!-- TÜREN -->
+  <div id="tab-tueren" class="panel active">
+    <div class="grid2">
+      <div>
+        <div class="card">
+          <div class="card-title">Neue Tür anlegen</div>
+          <label>Tür-ID *</label>
+          <input type="text" id="new-id" placeholder="z.B. T-001" />
+          <label>Bezeichnung *</label>
+          <input type="text" id="new-name" placeholder="z.B. Brandschutztür Treppenhaus" />
+          <label>Standort</label>
+          <input type="text" id="new-standort" placeholder="z.B. Gebäude A, EG, Treppenhaus Nord" />
+          <label>Firma / Objekt</label>
+          <input type="text" id="new-firma" placeholder="z.B. Muster GmbH" />
+          <label>Türtyp</label>
+          <select id="new-typ">
+            <option value="">— auswählen —</option>
+            <option>T30 – Feuerschutztür</option>
+            <option>T60 – Feuerschutztür</option>
+            <option>T90 – Feuerschutztür</option>
+            <option>RS – Rauchabschluss</option>
+            <option>Fluchttür</option>
+            <option>Sonstige</option>
+          </select>
+          <div style="margin-top:1.25rem;display:flex;gap:8px">
+            <button class="btn btn-primary" onclick="addDoor()">Tür hinzufügen</button>
+            <button class="btn" onclick="clearNewForm()">Leeren</button>
+          </div>
+        </div>
+      </div>
+      <div>
+        <div class="card" style="padding:0;overflow:hidden">
+          <div style="padding:1rem 1.5rem;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center">
+            <div class="card-title" style="margin:0">Alle Türen</div>
+            <span id="door-count" style="font-size:13px;color:var(--muted)"></span>
+          </div>
+          <div style="padding:0 1.5rem" id="door-list">
+            <div class="empty">Noch keine Türen angelegt.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- PROTOKOLL -->
+  <div id="tab-protokoll" class="panel">
+    <div class="grid4" id="stats"></div>
+    <div class="card" style="padding:0;overflow:hidden">
+      <div style="padding:1rem 1.5rem;border-bottom:1px solid var(--border);display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+        <div class="filter-row" style="margin:0;flex:1">
+          <select id="filter-firma" onchange="renderProtocol()"><option value="">Alle Firmen</option></select>
+          <select id="filter-status" onchange="renderProtocol()">
+            <option value="">Alle Status</option>
+            <option>OK</option><option>Mangel</option><option>Dringend</option>
+          </select>
+        </div>
+        <button class="btn btn-sm" onclick="exportCSV()">CSV exportieren</button>
+      </div>
+      <div style="overflow-x:auto">
+        <table>
+          <thead><tr><th>Datum</th><th>Uhrzeit</th><th>Tür-ID</th><th>Bezeichnung</th><th>Standort</th><th>Prüfer</th><th>Status</th><th>Bemerkung</th></tr></thead>
+          <tbody id="proto-body"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- QR CODES -->
+  <div id="tab-qrcodes" class="panel">
+    <div class="url-config">
+      <label style="font-family:inherit">Basis-URL deiner GitHub Pages Seite:</label>
+      <input type="text" id="base-url" placeholder="https://dein-name.github.io/brandschutz" style="margin-top:8px" oninput="saveBaseUrl();renderQR()" />
+      <div style="font-size:11px;color:#666;margin-top:8px">Der QR-Code enthält dann z.B.: https://dein-name.github.io/brandschutz/pruefung.html?tuer=T-001</div>
+    </div>
+    <div style="display:flex;gap:8px;margin-bottom:1.5rem">
+      <button class="btn" onclick="window.print()">Alle drucken</button>
+    </div>
+    <div class="qr-grid" id="qr-grid"></div>
+  </div>
+
+  <!-- EINSTELLUNGEN -->
+  <div id="tab-einstellungen" class="panel">
+    <div class="grid2">
+      <div class="card">
+        <div class="card-title">Daten sichern</div>
+        <p style="font-size:14px;color:var(--muted);margin-bottom:1rem">Exportiere alle Türen und Prüfprotokolle als JSON-Datei zur Sicherung.</p>
+        <button class="btn" onclick="exportJSON()">Backup herunterladen</button>
+      </div>
+      <div class="card">
+        <div class="card-title">Daten wiederherstellen</div>
+        <p style="font-size:14px;color:var(--muted);margin-bottom:1rem">Lade eine zuvor gesicherte JSON-Datei wieder ein.</p>
+        <input type="file" id="import-file" accept=".json" style="display:none" onchange="importJSON(this)">
+        <button class="btn" onclick="document.getElementById('import-file').click()">Backup einlesen</button>
+      </div>
+      <div class="card" style="border-color:#fcc">
+        <div class="card-title" style="color:var(--danger)">Daten zurücksetzen</div>
+        <p style="font-size:14px;color:var(--muted);margin-bottom:1rem">Löscht alle Türen und Prüfprotokolle. Nicht rückgängig zu machen.</p>
+        <button class="btn btn-danger" onclick="resetAll()">Alles löschen</button>
+      </div>
+      <div class="card">
+        <div class="card-title">Testdaten laden</div>
+        <p style="font-size:14px;color:var(--muted);margin-bottom:1rem">Lädt Beispieldaten zum Ausprobieren der App.</p>
+        <button class="btn" onclick="loadSampleData()">Beispieldaten laden</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+// --- Data ---
+let doors = [];
+let checks = [];
+let baseUrl = '';
+
+function loadData() {
+  try { doors = JSON.parse(localStorage.getItem('bs_doors') || '[]'); } catch(e){ doors=[]; }
+  try { checks = JSON.parse(localStorage.getItem('bs_checks') || '[]'); } catch(e){ checks=[]; }
+  baseUrl = localStorage.getItem('bs_baseurl') || '';
+  document.getElementById('base-url').value = baseUrl;
+}
+
+function saveData() {
+  localStorage.setItem('bs_doors', JSON.stringify(doors));
+  localStorage.setItem('bs_checks', JSON.stringify(checks));
+}
+
+function saveBaseUrl() {
+  baseUrl = document.getElementById('base-url').value.trim().replace(/\/$/, '');
+  localStorage.setItem('bs_baseurl', baseUrl);
+}
+
+// --- Tabs ---
+function showTab(name, el) {
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.getElementById('tab-' + name).classList.add('active');
+  el.classList.add('active');
+  if (name === 'protokoll') renderProtocol();
+  if (name === 'qrcodes') renderQR();
+}
+
+// --- Toast ---
+function toast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2500);
+}
+
+// --- Doors ---
+function addDoor() {
+  const id = document.getElementById('new-id').value.trim();
+  const name = document.getElementById('new-name').value.trim();
+  const standort = document.getElementById('new-standort').value.trim();
+  const firma = document.getElementById('new-firma').value.trim();
+  const typ = document.getElementById('new-typ').value;
+  if (!id || !name) { alert('Tür-ID und Bezeichnung sind Pflichtfelder.'); return; }
+  if (doors.find(d => d.id === id)) { alert('Diese Tür-ID existiert bereits.'); return; }
+  doors.push({ id, name, standort, firma, typ, created: Date.now() });
+  saveData();
+  renderDoorList();
+  updateFirmaFilter();
+  clearNewForm();
+  toast('✓ Tür ' + id + ' angelegt');
+}
+
+function deleteDoor(id) {
+  if (!confirm('Tür ' + id + ' wirklich löschen? Alle zugehörigen Prüfprotokolle bleiben erhalten.')) return;
+  doors = doors.filter(d => d.id !== id);
+  saveData();
+  renderDoorList();
+  toast('Tür gelöscht');
+}
+
+function clearNewForm() {
+  ['new-id','new-name','new-standort','new-firma'].forEach(f => document.getElementById(f).value = '');
+  document.getElementById('new-typ').value = '';
+}
+
+function renderDoorList() {
+  const el = document.getElementById('door-list');
+  document.getElementById('door-count').textContent = doors.length + ' Türen';
+  if (!doors.length) { el.innerHTML = '<div class="empty">Noch keine Türen angelegt.<br>Links eine neue Tür hinzufügen.</div>'; return; }
+  el.innerHTML = doors.map(d => `
+    <div class="door-row">
+      <div>
+        <div><span class="door-id">${d.id}</span>${d.typ ? ' <span style="font-size:11px;color:var(--muted)">' + d.typ + '</span>' : ''}</div>
+        <div class="door-name">${d.name}</div>
+        <div class="door-meta">${[d.standort, d.firma].filter(Boolean).join(' · ')}</div>
+      </div>
+      <button class="btn btn-sm btn-danger" onclick="deleteDoor('${d.id}')">Löschen</button>
+    </div>`).join('');
+}
+
+// --- Protocol ---
+function badgeHTML(s) {
+  const cls = s==='OK'?'badge-ok':s==='Mangel'?'badge-mangel':'badge-dringend';
+  return `<span class="badge ${cls}">${s}</span>`;
+}
+
+function renderProtocol() {
+  const filterFirma = document.getElementById('filter-firma').value;
+  const filterStatus = document.getElementById('filter-status').value;
+  let data = [...checks].sort((a,b) => b.ts - a.ts);
+  if (filterFirma) data = data.filter(c => c.firma === filterFirma);
+  if (filterStatus) data = data.filter(c => c.status === filterStatus);
+
+  const body = document.getElementById('proto-body');
+  body.innerHTML = data.length ? data.map(c => {
+    const d = new Date(c.ts);
+    return `<tr>
+      <td>${d.toLocaleDateString('de-DE')}</td>
+      <td>${d.toLocaleTimeString('de-DE',{hour:'2-digit',minute:'2-digit'})}</td>
+      <td><span class="door-id">${c.doorId}</span></td>
+      <td>${c.doorName||'–'}</td>
+      <td style="color:var(--muted)">${c.standort||'–'}</td>
+      <td>${c.pruefer||'–'}</td>
+      <td>${badgeHTML(c.status)}</td>
+      <td style="max-width:200px;color:var(--muted)">${c.bemerkung||'–'}</td>
+    </tr>`;
+  }).join('') : '<tr><td colspan="8" style="text-align:center;color:var(--muted);padding:2rem">Keine Einträge gefunden</td></tr>';
+
+  const ok = checks.filter(c=>c.status==='OK').length;
+  const mang = checks.filter(c=>c.status==='Mangel').length;
+  const dring = checks.filter(c=>c.status==='Dringend').length;
+  document.getElementById('stats').innerHTML = `
+    <div class="stat-card"><div class="stat-num">${checks.length}</div><div class="stat-label">Prüfungen gesamt</div></div>
+    <div class="stat-card"><div class="stat-num" style="color:var(--ok)">${ok}</div><div class="stat-label">OK</div></div>
+    <div class="stat-card"><div class="stat-num" style="color:var(--warn)">${mang}</div><div class="stat-label">Mängel</div></div>
+    <div class="stat-card"><div class="stat-num" style="color:var(--danger)">${dring}</div><div class="stat-label">Dringend</div></div>`;
+}
+
+function updateFirmaFilter() {
+  const firmen = [...new Set(checks.map(c=>c.firma).concat(doors.map(d=>d.firma)).filter(Boolean))];
+  const sel = document.getElementById('filter-firma');
+  const cur = sel.value;
+  sel.innerHTML = '<option value="">Alle Firmen</option>' + firmen.map(f=>`<option>${f}</option>`).join('');
+  if (cur) sel.value = cur;
+}
+
+// --- QR ---
+function renderQR() {
+  const grid = document.getElementById('qr-grid');
+  grid.innerHTML = '';
+  const url = baseUrl || 'https://DEIN-NAME.github.io/brandschutz';
+  if (!doors.length) { grid.innerHTML='<div class="empty">Keine Türen angelegt.<br>Zuerst im Tab "Türen" Türen hinzufügen.</div>'; return; }
+  doors.forEach(d => {
+    const pruefUrl = url + '/pruefung.html?tuer=' + encodeURIComponent(d.id);
+    const card = document.createElement('div');
+    card.className = 'qr-card';
+    const qrDiv = document.createElement('div');
+    card.appendChild(qrDiv);
+    const info = document.createElement('div');
+    info.innerHTML = `<div class="qr-door-id">${d.id}</div><div class="qr-door-name">${d.name}</div>${d.standort?'<div class="qr-door-name">'+d.standort+'</div>':''}<div class="url-hint">${pruefUrl}</div>`;
+    card.appendChild(info);
+    const printBtn = document.createElement('button');
+    printBtn.className = 'btn btn-sm';
+    printBtn.textContent = 'Drucken';
+    printBtn.onclick = () => { const w=window.open('','_blank'); w.document.write('<html><body style="text-align:center;padding:20px;font-family:sans-serif"><h2>'+d.id+' – '+d.name+'</h2><p>'+d.standort+'</p><div id="q"></div><p style="font-size:10px">'+pruefUrl+'</p></body></html>'); w.document.close(); new QRCode(w.document.getElementById('q'),{text:pruefUrl,width:200,height:200}); setTimeout(()=>w.print(),500); };
+    card.appendChild(printBtn);
+    grid.appendChild(card);
+    try { new QRCode(qrDiv, { text: pruefUrl, width: 150, height: 150, colorDark: '#1a1a18', colorLight: '#ffffff' }); }
+    catch(e) { qrDiv.textContent = 'QR Error'; }
+  });
+}
+
+// --- Export/Import ---
+function exportCSV() {
+  const rows = [['Datum','Uhrzeit','Tür-ID','Bezeichnung','Standort','Firma','Prüfer','Status','Bemerkung']];
+  [...checks].sort((a,b)=>b.ts-a.ts).forEach(c => {
+    const d = new Date(c.ts);
+    rows.push([d.toLocaleDateString('de-DE'), d.toLocaleTimeString('de-DE',{hour:'2-digit',minute:'2-digit'}), c.doorId, c.doorName, c.standort, c.firma, c.pruefer, c.status, c.bemerkung]);
+  });
+  const csv = rows.map(r => r.map(v => '"' + (v||'').replace(/"/g,'""') + '"').join(',')).join('\n');
+  dl('data:text/csv;charset=utf-8,\uFEFF' + encodeURIComponent(csv), 'pruefprotokoll_' + today() + '.csv');
+}
+
+function exportJSON() {
+  const data = JSON.stringify({ doors, checks, exportedAt: new Date().toISOString() }, null, 2);
+  dl('data:application/json;charset=utf-8,' + encodeURIComponent(data), 'brandschutz_backup_' + today() + '.json');
+}
+
+function importJSON(input) {
+  const file = input.files[0]; if (!file) return;
+  const r = new FileReader();
+  r.onload = e => {
+    try {
+      const data = JSON.parse(e.target.result);
+      if (!confirm('Backup einlesen? Vorhandene Daten werden ÜBERSCHRIEBEN.')) return;
+      doors = data.doors || [];
+      checks = data.checks || [];
+      saveData();
+      renderDoorList();
+      updateFirmaFilter();
+      toast('✓ Backup erfolgreich eingelesen');
+    } catch(err) { alert('Fehler beim Einlesen: ' + err.message); }
+  };
+  r.readAsText(file);
+  input.value = '';
+}
+
+function resetAll() {
+  if (!confirm('ACHTUNG: Alle Daten wirklich löschen?')) return;
+  if (!confirm('Wirklich? Das kann nicht rückgängig gemacht werden.')) return;
+  doors = []; checks = []; saveData(); renderDoorList(); toast('Alle Daten gelöscht');
+}
+
+function loadSampleData() {
+  if (!confirm('Beispieldaten laden? Bestehende Türen bleiben erhalten.')) return;
+  const sample = [
+    {id:'T-001',name:'Fluchttür Keller',standort:'Gebäude A, UG, Nordseite',firma:'Muster GmbH',typ:'T30 – Feuerschutztür'},
+    {id:'T-002',name:'Brandschutztür Treppenhaus',standort:'Gebäude A, EG',firma:'Muster GmbH',typ:'T60 – Feuerschutztür'},
+    {id:'T-003',name:'Feuerschutztür Lager',standort:'Gebäude B, EG',firma:'Muster GmbH',typ:'T90 – Feuerschutztür'},
+    {id:'T-004',name:'Rauchabschluss Flur',standort:'Gebäude A, 1.OG',firma:'Mustermann AG',typ:'RS – Rauchabschluss'},
+  ];
+  sample.forEach(d => { if (!doors.find(x=>x.id===d.id)) doors.push({...d, created:Date.now()}); });
+  const now = Date.now();
+  [
+    {ts:now-86400000*3,doorId:'T-001',doorName:'Fluchttür Keller',standort:'Gebäude A, UG',firma:'Muster GmbH',pruefer:'M. Weber',status:'OK',bemerkung:'Alles in Ordnung, Selbstschlussmechanismus funktioniert'},
+    {ts:now-86400000*3,doorId:'T-002',doorName:'Brandschutztür Treppenhaus',standort:'Gebäude A, EG',firma:'Muster GmbH',pruefer:'M. Weber',status:'Mangel',bemerkung:'Dichtung oben rechts beschädigt, Austausch erforderlich'},
+    {ts:now-86400000*1,doorId:'T-003',doorName:'Feuerschutztür Lager',standort:'Gebäude B, EG',firma:'Muster GmbH',pruefer:'K. Müller',status:'Dringend',bemerkung:'Türschließer defekt, Tür schließt nicht vollständig'},
+  ].forEach(c => checks.push(c));
+  saveData(); renderDoorList(); updateFirmaFilter(); toast('✓ Beispieldaten geladen');
+}
+
+function dl(href, name) {
+  const a = document.createElement('a'); a.href = href; a.download = name; a.click();
+}
+
+function today() { return new Date().toISOString().slice(0,10); }
+
+// --- Init ---
+loadData();
+renderDoorList();
+updateFirmaFilter();
+document.getElementById('header-date').textContent = new Date().toLocaleDateString('de-DE', {weekday:'long',day:'numeric',month:'long',year:'numeric'});
+</script>
+</body>
+</html>
