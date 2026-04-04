@@ -3,6 +3,12 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#c8381e">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Brandschutz">
+<link rel="apple-touch-icon" href="icon-192.png">
 <title>Brandschutz – Verwaltung</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
@@ -249,7 +255,7 @@ function processFile(file){
   document.getElementById('import-status').textContent='Lese Datei...';
   const reader=new FileReader();
   reader.onload=e=>{
-    const wb=XLSX.read(e.target.result,{type:'binary'});
+    const wb=XLSX.read(new Uint8Array(e.target.result),{type:'array'});
     const ws=wb.Sheets[wb.SheetNames[0]];
     const data=XLSX.utils.sheet_to_json(ws,{header:1,defval:''});
     if(!data||data.length<2){document.getElementById('import-status').textContent='Datei leer oder ungültig.';return}
@@ -260,7 +266,7 @@ function processFile(file){
     buildColMap();
     document.getElementById('map-card').style.display='block';
   };
-  reader.readAsBinaryString(file);
+  reader.readAsArrayBuffer(file);
 }
 
 function showPreview(){
@@ -418,7 +424,16 @@ function printQR(){
     const sid=d.id.replace(/[^a-z0-9]/gi,'_');
     w.document.write(`new QRCode(document.getElementById('q${sid}'),{text:${JSON.stringify(url)},width:150,height:150});`);
   });
-  w.document.write(`setTimeout(()=>window.print(),800);<\/script></body></html>`);
+  w.document.write(`setTimeout(()=>window.print(),800);<\/script><script>
+if('serviceWorker' in navigator){
+  window.addEventListener('load',()=>{
+    navigator.serviceWorker.register('./sw.js').then(r=>{
+      console.log('SW registered');
+    }).catch(e=>console.log('SW error',e));
+  });
+}
+</script>
+</body></html>`);
   w.document.close();
 }
 
