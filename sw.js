@@ -1,11 +1,9 @@
-const CACHE = 'brandschutz-v1';
+const CACHE = 'brandschutz-v2';
 const ASSETS = [
-  './verwaltung.html',
   './pruefung.html',
   './manifest.json',
   './icon-192.png',
   './icon-512.png',
-  'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js',
   'https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js'
 ];
 
