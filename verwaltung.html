@@ -424,15 +424,7 @@ function printQR(){
     const sid=d.id.replace(/[^a-z0-9]/gi,'_');
     w.document.write(`new QRCode(document.getElementById('q${sid}'),{text:${JSON.stringify(url)},width:150,height:150});`);
   });
-  w.document.write(`setTimeout(()=>window.print(),800);<\/script><script>
-if('serviceWorker' in navigator){
-  navigator.serviceWorker.getRegistrations().then(regs=>{
-    regs.forEach(r=>r.unregister());
-  });
-  caches.keys().then(keys=>keys.forEach(k=>caches.delete(k)));
-}
-</script>
-</body></html>`);
+  w.document.write(`setTimeout(()=>window.print(),800);<\/script></body></html>`);
   w.document.close();
 }
 
