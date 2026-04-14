@@ -1,5 +1,6 @@
 const CACHE = 'brandschutz-v2';
 const ASSETS = [
+  './start.html',
   './pruefung.html',
   './manifest.json',
   './icon-192.png',

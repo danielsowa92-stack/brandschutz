@@ -2,7 +2,7 @@
   "name": "Brandschutz-Prüfung",
   "short_name": "Brandschutz",
   "description": "Wiederkehrende Prüfung von Brandschutztüren",
-  "start_url": "./verwaltung.html",
+  "start_url": "./start.html",
   "display": "standalone",
   "background_color": "#f4f3ef",
   "theme_color": "#c8381e",
