@@ -207,7 +207,7 @@ function startScanner(){
     showErr('Kamera nicht verfügbar. Bitte HTTPS nutzen oder Tür manuell auswählen.');
     scanning=false;return;
   }
-  navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:'environment'},width:{ideal:1280}}})
+  navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:'environment'},width:{ideal:640},height:{ideal:640}}})
   .then(stream=>{
     videoStream=stream;
     const v=document.getElementById('scan-vid');
@@ -231,17 +231,23 @@ function stopScanner(){
 }
 
 const _canvas=document.createElement('canvas');
-const _ctx=_canvas.getContext('2d');
+const _ctx=_canvas.getContext('2d',{willReadFrequently:true});
+let _lastScan=0;
 
-function tick(){
+function tick(ts){
   if(!scanning)return;
   const v=document.getElementById('scan-vid');
   if(v.readyState===v.HAVE_ENOUGH_DATA&&v.videoWidth>0){
-    _canvas.width=v.videoWidth;_canvas.height=v.videoHeight;
-    _ctx.drawImage(v,0,0);
-    const img=_ctx.getImageData(0,0,_canvas.width,_canvas.height);
-    const code=jsQR(img.data,img.width,img.height,{inversionAttempts:'dontInvert'});
-    if(code){onQR(code.data);return}
+    if(ts-_lastScan>150){
+      _lastScan=ts;
+      const s=Math.min(v.videoWidth,v.videoHeight);
+      _canvas.width=s;_canvas.height=s;
+      const ox=(v.videoWidth-s)/2;const oy=(v.videoHeight-s)/2;
+      _ctx.drawImage(v,ox,oy,s,s,0,0,s,s);
+      const img=_ctx.getImageData(0,0,s,s);
+      const code=jsQR(img.data,img.width,img.height,{inversionAttempts:'dontInvert'});
+      if(code){onQR(code.data);return}
+    }
   }
   rafId=requestAnimationFrame(tick);
 }
