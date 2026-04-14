@@ -1,0 +1,370 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#c8381e">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Brandschutz">
+<link rel="apple-touch-icon" href="icon-192.png">
+<title>Brandschutz-Prüfung</title>
+<style>
+:root{--r:#c8381e;--rl:#fdf0ed;--bg:#f4f3ef;--s:#fff;--b:#e3e1d9;--t:#181816;--m:#6a6a64;--ok:#2d6a3f;--okb:#eaf3de;--wa:#7c4a0a;--wab:#faeeda;--da:#a32d2d;--dab:#fcebeb;--rad:12px;--rads:8px}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+body{font-family:'Helvetica Neue',Arial,sans-serif;background:var(--bg);color:var(--t);min-height:100vh;font-size:16px}
+.bar{background:var(--r);color:white;padding:13px 1.25rem;display:flex;align-items:center;gap:10px;position:sticky;top:0;z-index:20}
+.bar svg{width:22px;height:22px;fill:white;flex-shrink:0}
+.bar-title{font-weight:700;font-size:15px}
+.bar-sub{font-size:12px;opacity:.75;margin-top:1px}
+.bar-back{margin-left:auto;background:rgba(255,255,255,.2);border:none;color:white;font-size:13px;font-weight:600;padding:6px 12px;border-radius:6px;cursor:pointer;font-family:inherit;display:none}
+.page{max-width:520px;margin:0 auto;padding:1rem}
+.card{background:var(--s);border:1px solid var(--b);border-radius:var(--rad);padding:1.25rem;margin-bottom:.875rem}
+.door-id-tag{display:inline-block;background:var(--rl);color:var(--r);font-size:13px;font-weight:700;padding:3px 10px;border-radius:20px;margin-bottom:8px}
+.door-title{font-size:19px;font-weight:700;line-height:1.2}
+.door-meta{font-size:14px;color:var(--m);margin-top:3px;line-height:1.5;white-space:pre-line}
+.door-typ{display:inline-block;background:var(--bg);border:1px solid var(--b);font-size:12px;padding:2px 9px;border-radius:4px;margin-top:7px}
+.last{margin-top:10px;padding-top:10px;border-top:1px solid var(--b);font-size:13px;color:var(--m)}
+.sec-label{font-size:11px;font-weight:700;color:var(--m);text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px}
+.status-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px}
+.sbtn{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;padding:15px 6px;border-radius:var(--rads);border:2px solid var(--b);background:white;cursor:pointer;font-size:13px;font-weight:600;color:var(--m);line-height:1.2;text-align:center;transition:all .15s;font-family:inherit}
+.sbtn:active{transform:scale(.96)}
+.sbtn .ico{font-size:22px}
+.s-ok{background:var(--okb);border-color:var(--ok);color:var(--ok)}
+.s-wa{background:var(--wab);border-color:var(--wa);color:var(--wa)}
+.s-da{background:var(--dab);border-color:var(--da);color:var(--da)}
+.chk-list{overflow:hidden;border-radius:var(--rad);border:1px solid var(--b);background:white}
+.chk-item{display:flex;align-items:center;gap:12px;padding:14px 1.25rem;border-bottom:1px solid var(--b);cursor:pointer;transition:background .1s;-webkit-user-select:none;user-select:none}
+.chk-item:last-child{border-bottom:none}
+.chk-item:active{background:var(--bg)}
+.chk-box{width:24px;height:24px;border:2px solid var(--b);border-radius:5px;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:all .15s}
+.chk-box.on{background:var(--ok);border-color:var(--ok)}
+.chk-box.on::after{content:'✓';color:white;font-size:14px;font-weight:700}
+.chk-lbl{font-size:15px;flex:1}
+input[type=text],textarea{width:100%;padding:12px 14px;border:1px solid var(--b);border-radius:var(--rads);font-size:16px;font-family:inherit;color:var(--t);background:white;outline:none;transition:border-color .15s;-webkit-appearance:none}
+input[type=text]:focus,textarea:focus{border-color:var(--r)}
+textarea{resize:vertical;min-height:80px}
+.field-lbl{font-size:13px;font-weight:600;color:var(--m);margin-bottom:5px;display:block}
+.save-btn{width:100%;padding:17px;background:var(--r);color:white;border:none;border-radius:var(--rad);font-size:17px;font-weight:700;cursor:pointer;font-family:inherit;transition:all .15s;margin-top:.25rem}
+.save-btn:active{background:#a8301a;transform:scale(.98)}
+.ok-screen{display:none;flex-direction:column;align-items:center;justify-content:center;min-height:65vh;text-align:center;padding:2rem}
+.ok-icon{width:76px;height:76px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:36px;margin-bottom:1.25rem}
+.ok-title{font-size:22px;font-weight:700;margin-bottom:6px}
+.ok-sub{font-size:15px;color:var(--m);line-height:1.6}
+.new-btn{margin-top:1.75rem;padding:12px 28px;border:2px solid var(--t);border-radius:var(--rads);background:transparent;font-size:15px;font-weight:600;font-family:inherit;cursor:pointer}
+.nf{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:55vh;text-align:center;padding:2rem}
+.gap{height:12px}
+
+/* SCANNER */
+#s-scan{flex-direction:column;align-items:center;padding-top:1.5rem}
+.scan-wrap{position:relative;width:100%;max-width:320px;aspect-ratio:1;border-radius:16px;overflow:hidden;background:#111}
+#scan-vid{width:100%;height:100%;object-fit:cover;display:block}
+.scan-ov{position:absolute;inset:0;pointer-events:none;display:flex;align-items:center;justify-content:center}
+.scan-frame{width:62%;height:62%;border:3px solid rgba(255,255,255,.9);border-radius:10px;box-shadow:0 0 0 9999px rgba(0,0,0,.5)}
+.scan-line{position:absolute;left:19%;right:19%;height:2px;background:var(--r);border-radius:2px;animation:sl 1.8s ease-in-out infinite}
+@keyframes sl{0%{top:19%}50%{top:81%}100%{top:19%}}
+.scan-hint{margin-top:1rem;font-size:14px;color:var(--m);text-align:center;line-height:1.5}
+.scan-err{background:var(--dab);color:var(--da);border-radius:var(--rads);padding:10px 14px;font-size:14px;margin-top:.75rem;width:100%;max-width:320px;text-align:center;display:none}
+.scan-or{margin-top:1.25rem;font-size:13px;color:var(--m);display:flex;align-items:center;gap:8px;width:100%;max-width:320px}
+.scan-or::before,.scan-or::after{content:'';flex:1;height:1px;background:var(--b)}
+.scan-manual-btn{width:100%;max-width:320px;margin-top:.75rem;padding:12px;background:white;border:1px solid var(--b);border-radius:var(--rad);font-size:14px;font-weight:600;cursor:pointer;color:var(--t);font-family:inherit}
+.scan-manual-btn:active{background:var(--bg)}
+.sel-list{width:100%;max-width:320px;background:white;border:1px solid var(--b);border-radius:var(--rad);overflow:hidden;margin-top:.75rem;display:none}
+.sel-item{display:block;padding:12px 1rem;border-bottom:1px solid var(--b);text-decoration:none;color:var(--t);cursor:pointer}
+.sel-item:last-child{border-bottom:none}
+.sel-item:active{background:var(--bg)}
+</style>
+</head>
+<body>
+
+<div class="bar">
+  <svg viewBox="0 0 24 24"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/></svg>
+  <div><div class="bar-title">Brandschutz-Prüfung</div><div class="bar-sub" id="bar-date"></div></div>
+  <button class="bar-back" id="bar-back" onclick="goHome()">← Scannen</button>
+</div>
+
+<div class="page">
+
+  <!-- SCANNER -->
+  <div id="s-scan" style="display:none">
+    <div class="scan-wrap">
+      <video id="scan-vid" autoplay playsinline muted></video>
+      <div class="scan-ov">
+        <div class="scan-frame"></div>
+        <div class="scan-line"></div>
+      </div>
+    </div>
+    <div class="scan-hint">Kamera auf den QR-Code an der Tür halten</div>
+    <div class="scan-err" id="scan-err"></div>
+    <div class="scan-or">oder</div>
+    <button class="scan-manual-btn" onclick="toggleManual()">Tür manuell auswählen</button>
+    <div class="sel-list" id="sel-list"></div>
+  </div>
+
+  <!-- NOT FOUND -->
+  <div id="s-nf" style="display:none">
+    <div class="nf">
+      <div style="font-size:48px;opacity:.3;margin-bottom:1rem">🚪</div>
+      <div style="font-size:20px;font-weight:700;margin-bottom:8px">Tür nicht gefunden</div>
+      <div style="font-size:15px;color:var(--m);line-height:1.6;margin-bottom:1.5rem">ID <strong id="nf-id"></strong> ist nicht in der Verwaltung angelegt.</div>
+      <button class="new-btn" onclick="goHome()">← Zurück</button>
+    </div>
+  </div>
+
+  <!-- FORM -->
+  <div id="s-form" style="display:none">
+    <div class="card">
+      <div class="door-id-tag" id="f-id"></div>
+      <div class="door-title" id="f-name"></div>
+      <div class="door-meta" id="f-meta"></div>
+      <div class="door-typ" id="f-typ" style="display:none"></div>
+      <div class="last" id="f-last"></div>
+    </div>
+    <div class="card">
+      <div class="sec-label">Prüfergebnis *</div>
+      <div class="status-grid">
+        <button class="sbtn" onclick="setSt('OK',this)"><span class="ico">✅</span>Alles OK</button>
+        <button class="sbtn" onclick="setSt('Mangel',this)"><span class="ico">⚠️</span>Mangel</button>
+        <button class="sbtn" onclick="setSt('Dringend',this)"><span class="ico">🚨</span>Dringend</button>
+      </div>
+    </div>
+    <div class="card">
+      <div class="sec-label">Checkliste</div>
+      <div class="chk-list">
+        <div class="chk-item" onclick="tog(this)"><div class="chk-box"></div><span class="chk-lbl">Selbstschlussmechanismus funktioniert</span></div>
+        <div class="chk-item" onclick="tog(this)"><div class="chk-box"></div><span class="chk-lbl">Tür schließt vollständig</span></div>
+        <div class="chk-item" onclick="tog(this)"><div class="chk-box"></div><span class="chk-lbl">Türdichtung intakt</span></div>
+        <div class="chk-item" onclick="tog(this)"><div class="chk-box"></div><span class="chk-lbl">Türscharniere in Ordnung</span></div>
+        <div class="chk-item" onclick="tog(this)"><div class="chk-box"></div><span class="chk-lbl">Kein Keil / Feststeller vorhanden</span></div>
+        <div class="chk-item" onclick="tog(this)"><div class="chk-box"></div><span class="chk-lbl">Beschriftung / Kennzeichnung lesbar</span></div>
+        <div class="chk-item" onclick="tog(this)"><div class="chk-box"></div><span class="chk-lbl">Freier Fluchtweg sichergestellt</span></div>
+        <div class="chk-item" onclick="tog(this)"><div class="chk-box"></div><span class="chk-lbl">Türblatt ohne Beschädigung</span></div>
+      </div>
+    </div>
+    <div class="card">
+      <label class="field-lbl">Prüfer</label>
+      <input type="text" id="pruefer" placeholder="Vor- und Nachname">
+      <div class="gap"></div>
+      <label class="field-lbl">Bemerkung / Mängelbeschreibung</label>
+      <textarea id="bemerkung" placeholder="Was wurde festgestellt? Was muss repariert werden?"></textarea>
+    </div>
+    <button class="save-btn" onclick="savePruefung()">Prüfung speichern</button>
+  </div>
+
+  <!-- SUCCESS -->
+  <div id="s-ok" class="ok-screen">
+    <div class="ok-icon" id="ok-ico"></div>
+    <div class="ok-title" id="ok-title"></div>
+    <div class="ok-sub" id="ok-sub"></div>
+    <button class="new-btn" onclick="goHome()">Nächste Tür scannen</button>
+  </div>
+
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jsqr/1.4.0/jsQR.min.js"></script>
+<script>
+const P=new URLSearchParams(location.search);
+const URL_DOOR=P.get('tuer')||P.get('door')||P.get('id')||'';
+let doors=[],checks=[],selStatus='',curDoor=null,videoStream=null,rafId=null,scanning=false;
+
+function ld(){
+  try{doors=JSON.parse(localStorage.getItem('bs_doors')||'[]')}catch{doors=[]}
+  try{checks=JSON.parse(localStorage.getItem('bs_checks')||'[]')}catch{checks=[]}
+}
+function sv(){localStorage.setItem('bs_doors',JSON.stringify(doors));localStorage.setItem('bs_checks',JSON.stringify(checks))}
+
+function show(id){
+  ['s-scan','s-nf','s-form','s-ok'].forEach(s=>{
+    const el=document.getElementById(s);
+    if(s===id){el.style.display=(s==='s-ok'||s==='s-scan')?'flex':'block'}
+    else el.style.display='none';
+  });
+  document.getElementById('bar-back').style.display=(id==='s-form'||id==='s-ok'||id==='s-nf')?'block':'none';
+  if(id!=='s-scan')stopScanner();
+}
+
+function init(){
+  ld();
+  document.getElementById('bar-date').textContent=new Date().toLocaleDateString('de-DE',{weekday:'long',day:'numeric',month:'long'});
+  // Direct URL with door ID (e.g. QR code that encodes a link)
+  if(URL_DOOR){
+    curDoor=doors.find(d=>d.id===URL_DOOR);
+    if(!curDoor){document.getElementById('nf-id').textContent=URL_DOOR;show('s-nf');return}
+    fillForm(curDoor);show('s-form');
+    return;
+  }
+  show('s-scan');
+  startScanner();
+}
+
+// ---- SCANNER ----
+function startScanner(){
+  if(scanning)return;
+  scanning=true;
+  document.getElementById('scan-err').style.display='none';
+  if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia){
+    showErr('Kamera nicht verfügbar. Bitte HTTPS nutzen oder Tür manuell auswählen.');
+    scanning=false;return;
+  }
+  navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:'environment'},width:{ideal:1280}}})
+  .then(stream=>{
+    videoStream=stream;
+    const v=document.getElementById('scan-vid');
+    v.srcObject=stream;
+    v.play().then(()=>{rafId=requestAnimationFrame(tick)});
+  })
+  .catch(err=>{
+    scanning=false;
+    if(err.name==='NotAllowedError')showErr('Kamera-Zugriff verweigert. Bitte in den Browser-Einstellungen erlauben und Seite neu laden.');
+    else if(err.name==='NotFoundError')showErr('Keine Kamera gefunden. Bitte Tür manuell auswählen.');
+    else showErr('Kamera-Fehler: '+err.message);
+  });
+}
+
+function stopScanner(){
+  scanning=false;
+  if(rafId){cancelAnimationFrame(rafId);rafId=null}
+  if(videoStream){videoStream.getTracks().forEach(t=>t.stop());videoStream=null}
+  const v=document.getElementById('scan-vid');
+  v.srcObject=null;
+}
+
+const _canvas=document.createElement('canvas');
+const _ctx=_canvas.getContext('2d');
+
+function tick(){
+  if(!scanning)return;
+  const v=document.getElementById('scan-vid');
+  if(v.readyState===v.HAVE_ENOUGH_DATA&&v.videoWidth>0){
+    _canvas.width=v.videoWidth;_canvas.height=v.videoHeight;
+    _ctx.drawImage(v,0,0);
+    const img=_ctx.getImageData(0,0,_canvas.width,_canvas.height);
+    const code=jsQR(img.data,img.width,img.height,{inversionAttempts:'dontInvert'});
+    if(code){onQR(code.data);return}
+  }
+  rafId=requestAnimationFrame(tick);
+}
+
+function onQR(text){
+  stopScanner();
+  ld();
+  let id=text.trim();
+  // If the QR code contains a URL, extract the tuer param
+  try{const u=new URL(text);id=u.searchParams.get('tuer')||u.searchParams.get('door')||u.searchParams.get('id')||id}catch(e){}
+  curDoor=doors.find(d=>d.id===id);
+  if(!curDoor){document.getElementById('nf-id').textContent=id;show('s-nf');return}
+  fillForm(curDoor);show('s-form');
+}
+
+function showErr(msg){const el=document.getElementById('scan-err');el.textContent=msg;el.style.display='block'}
+
+function toggleManual(){
+  const el=document.getElementById('sel-list');
+  if(el.style.display==='block'){el.style.display='none';return}
+  buildManualList();
+  el.style.display='block';
+}
+
+function buildManualList(){
+  const el=document.getElementById('sel-list');
+  if(!doors.length){el.innerHTML='<div style="padding:1rem;font-size:14px;color:var(--m);text-align:center">Keine Türen angelegt.</div>';return}
+  el.innerHTML=doors.map(d=>`<div class="sel-item" onclick="selectManual('${d.id}')">
+    <span style="background:var(--rl);color:var(--r);font-size:11px;font-weight:700;padding:2px 7px;border-radius:4px;margin-right:6px">${d.id}</span>
+    <strong>${d.name||d.id}</strong><br>
+    <span style="font-size:13px;color:var(--m)">${[d.standort,d.firma].filter(Boolean).join(' · ')}</span>
+  </div>`).join('');
+}
+
+function selectManual(id){
+  ld();
+  curDoor=doors.find(d=>d.id===id);
+  if(!curDoor)return;
+  fillForm(curDoor);show('s-form');
+}
+
+// ---- FORM ----
+function fillForm(d){
+  document.getElementById('f-id').textContent=d.id;
+  document.getElementById('f-name').textContent=d.name||d.id;
+  const meta=[d.standort,d.gebaeude&&d.etage?d.gebaeude+' · '+d.etage:(d.gebaeude||d.etage||''),d.firma].filter(Boolean).join('\n');
+  document.getElementById('f-meta').textContent=meta;
+  const t=document.getElementById('f-typ');
+  if(d.typ){t.textContent=d.typ;t.style.display='inline-block'}else{t.style.display='none'}
+  const last=[...checks].filter(c=>c.doorId===d.id).sort((a,b)=>b.ts-a.ts)[0];
+  document.getElementById('f-last').innerHTML=last
+    ?`Letzte Prüfung: <strong>${new Date(last.ts).toLocaleDateString('de-DE')}</strong> — ${last.status}${last.pruefer&&last.pruefer!=='–'?' ('+last.pruefer+')':''}`
+    :'Noch nie geprüft';
+}
+
+function setSt(val,btn){
+  selStatus=val;
+  document.querySelectorAll('.sbtn').forEach(b=>b.className='sbtn');
+  btn.className='sbtn '+(val==='OK'?'s-ok':val==='Mangel'?'s-wa':'s-da');
+}
+
+function tog(el){el.querySelector('.chk-box').classList.toggle('on')}
+
+function getChecked(){
+  return[...document.querySelectorAll('.chk-item')].filter(e=>e.querySelector('.chk-box').classList.contains('on')).map(e=>e.querySelector('.chk-lbl').textContent);
+}
+
+function savePruefung(){
+  if(!selStatus){alert('Bitte Prüfergebnis auswählen.');return}
+  if(!curDoor)return;
+  const entry={ts:Date.now(),doorId:curDoor.id,doorName:curDoor.name||'',standort:curDoor.standort||'',gebaeude:curDoor.gebaeude||'',etage:curDoor.etage||'',firma:curDoor.firma||'',typ:curDoor.typ||'',pruefer:document.getElementById('pruefer').value.trim()||'–',status:selStatus,checklist:getChecked(),bemerkung:document.getElementById('bemerkung').value.trim()};
+  checks.push(entry);sv();
+  const cfg={
+    OK:{ico:'✅',bg:'#eaf3de',title:'Prüfung gespeichert',sub:`Tür <strong>${entry.doorId}</strong> als <strong>OK</strong> protokolliert.`},
+    Mangel:{ico:'⚠️',bg:'#faeeda',title:'Mangel protokolliert',sub:`Tür <strong>${entry.doorId}</strong> hat einen Mangel. Reparatur einplanen.`},
+    Dringend:{ico:'🚨',bg:'#fcebeb',title:'Dringender Mangel!',sub:`Tür <strong>${entry.doorId}</strong> muss sofort behoben werden!`}
+  }[entry.status];
+  const ico=document.getElementById('ok-ico');
+  ico.style.background=cfg.bg;ico.textContent=cfg.ico;
+  document.getElementById('ok-title').textContent=cfg.title;
+  document.getElementById('ok-sub').innerHTML=cfg.sub+`<br><br>Gespeichert am ${new Date(entry.ts).toLocaleDateString('de-DE')} um ${new Date(entry.ts).toLocaleTimeString('de-DE',{hour:'2-digit',minute:'2-digit'})} Uhr${entry.pruefer!=='–'?' · '+entry.pruefer:''}.`;
+  show('s-ok');
+}
+
+function goHome(){
+  selStatus='';curDoor=null;
+  document.querySelectorAll('.sbtn').forEach(b=>b.className='sbtn');
+  document.querySelectorAll('.chk-box').forEach(b=>b.classList.remove('on'));
+  document.getElementById('pruefer').value='';
+  document.getElementById('bemerkung').value='';
+  document.getElementById('sel-list').style.display='none';
+  show('s-scan');
+  startScanner();
+}
+
+init();
+</script>
+<script>
+if('serviceWorker' in navigator){
+  window.addEventListener('load',()=>{
+    navigator.serviceWorker.register('./sw.js');
+  });
+}
+</script>
+<div id="install-bar" style="display:none;position:fixed;bottom:0;left:0;right:0;background:#1a1a18;color:white;padding:12px 1.25rem;display:flex;align-items:center;justify-content:space-between;z-index:200;font-size:14px">
+  <span>App zum Homescreen hinzufügen?</span>
+  <div style="display:flex;gap:8px">
+    <button onclick="doInstall()" style="background:#c8381e;color:white;border:none;padding:7px 14px;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer">Installieren</button>
+    <button onclick="document.getElementById('install-bar').style.display='none'" style="background:transparent;color:#aaa;border:1px solid #444;padding:7px 12px;border-radius:6px;font-size:13px;cursor:pointer">Nicht jetzt</button>
+  </div>
+</div>
+<script>
+let deferredPrompt;
+window.addEventListener('beforeinstallprompt',e=>{
+  e.preventDefault();deferredPrompt=e;
+  document.getElementById('install-bar').style.display='flex';
+});
+function doInstall(){
+  if(!deferredPrompt)return;
+  deferredPrompt.prompt();
+  deferredPrompt.userChoice.then(()=>{deferredPrompt=null;document.getElementById('install-bar').style.display='none'});
+}
+window.addEventListener('appinstalled',()=>{document.getElementById('install-bar').style.display='none'});
+</script>
+</body>
+</html>
