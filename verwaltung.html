@@ -15,13 +15,14 @@
 <style>
 :root{--bg:#f4f3ef;--s:#fff;--b:#e3e1d9;--t:#181816;--m:#6a6a64;--r:#c8381e;--rl:#fdf0ed;--ok:#2d6a3f;--okb:#eaf3de;--wa:#7c4a0a;--wab:#faeeda;--da:#a32d2d;--dab:#fcebeb;--rad:10px;--rads:6px}
 *{box-sizing:border-box;margin:0;padding:0}
-body{font-family:'Helvetica Neue',Arial,sans-serif;background:var(--bg);color:var(--t);font-size:15px;min-height:100vh}
+body{font-family:'Helvetica Neue',Arial,sans-serif;background:var(--bg);color:var(--t);font-size:15px;min-height:100vh;overflow-x:hidden}
 header{background:var(--s);border-bottom:1px solid var(--b);height:54px;display:flex;align-items:center;padding:0 1.5rem;gap:12px;position:sticky;top:0;z-index:100}
 .logo{width:28px;height:28px;background:var(--r);border-radius:6px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
 .logo svg{width:16px;height:16px;fill:white}
 h1{font-size:16px;font-weight:700}
-.tabs{display:flex;border-bottom:1px solid var(--b);background:var(--s);padding:0 1.5rem}
-.tab{padding:11px 18px;font-size:14px;font-weight:500;cursor:pointer;border:none;background:none;color:var(--m);border-bottom:2px solid transparent;margin-bottom:-1px;transition:color .15s;font-family:inherit}
+.tabs{display:flex;border-bottom:1px solid var(--b);background:var(--s);padding:0;position:sticky;top:54px;z-index:99;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none;max-width:100vw}
+.tabs::-webkit-scrollbar{display:none}
+.tab{padding:11px 16px;font-size:14px;font-weight:500;cursor:pointer;border:none;background:none;color:var(--m);border-bottom:2px solid transparent;margin-bottom:-1px;transition:color .15s;font-family:inherit;white-space:nowrap;flex-shrink:0}
 .tab:hover{color:var(--t)}
 .tab.on{color:var(--r);border-bottom-color:var(--r)}
 .panel{display:none}.panel.on{display:block}
@@ -44,7 +45,7 @@ input:focus,select:focus,textarea:focus{border-color:var(--r);background:white}
 .b-wa{background:var(--wab);color:var(--wa)}
 .b-da{background:var(--dab);color:var(--da)}
 .b-id{background:var(--rl);color:var(--r);font-size:11px;font-weight:700;padding:2px 7px;border-radius:4px}
-table{width:100%;border-collapse:collapse;font-size:13px}
+table{width:100%;border-collapse:collapse;font-size:13px;min-width:600px}
 th{text-align:left;padding:9px 12px;font-size:11px;font-weight:700;color:var(--m);text-transform:uppercase;letter-spacing:.4px;border-bottom:1px solid var(--b)}
 td{padding:10px 12px;border-bottom:1px solid var(--b);vertical-align:middle}
 tr:last-child td{border-bottom:none}
