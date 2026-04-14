@@ -87,18 +87,20 @@ textarea{resize:vertical;min-height:80px}
 <div class="page">
 
   <!-- SCANNER -->
-  <div id="s-scan" style="display:none">
-    <div class="scan-wrap">
-      <video id="scan-vid" autoplay playsinline muted></video>
-      <div class="scan-ov">
-        <div class="scan-frame"></div>
-        <div class="scan-line"></div>
-      </div>
+  <div id="s-scan" style="display:none;flex-direction:column;align-items:center;padding:2rem 1.25rem;gap:16px">
+    <div style="width:100%;max-width:320px;background:white;border:1px solid var(--b);border-radius:var(--rad);padding:2rem;text-align:center">
+      <div style="font-size:48px;margin-bottom:1rem">📷</div>
+      <div style="font-weight:700;font-size:18px;margin-bottom:8px">QR-Code scannen</div>
+      <div style="font-size:14px;color:var(--m);margin-bottom:1.5rem;line-height:1.5">Kamera öffnen und QR-Code an der Tür scannen</div>
+      <label style="display:block;width:100%;padding:14px;background:var(--r);color:white;border-radius:var(--rads);font-size:16px;font-weight:700;cursor:pointer;margin:0">
+        Kamera öffnen
+        <input type="file" accept="image/*" capture="environment" style="display:none" onchange="scanImage(this)">
+      </label>
     </div>
-    <div class="scan-hint">Kamera auf den QR-Code an der Tür halten</div>
-    <div class="scan-err" id="scan-err"></div>
-    <div class="scan-or">oder</div>
-    <button class="scan-manual-btn" onclick="toggleManual()">Tür manuell auswählen</button>
+    <div class="scan-or" style="width:100%;max-width:320px;display:flex;align-items:center;gap:8px;font-size:13px;color:var(--m)">
+      <span style="flex:1;height:1px;background:var(--b);display:block"></span>oder<span style="flex:1;height:1px;background:var(--b);display:block"></span>
+    </div>
+    <button class="scan-manual-btn" onclick="toggleManual()" style="width:100%;max-width:320px;padding:12px;background:white;border:1px solid var(--b);border-radius:var(--rad);font-size:14px;font-weight:600;cursor:pointer;color:var(--t);font-family:inherit">Tür manuell auswählen</button>
     <div class="sel-list" id="sel-list"></div>
   </div>
 
@@ -199,57 +201,26 @@ function init(){
 }
 
 // ---- SCANNER ----
-function startScanner(){
-  if(scanning)return;
-  scanning=true;
-  document.getElementById('scan-err').style.display='none';
-  if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia){
-    showErr('Kamera nicht verfügbar. Bitte HTTPS nutzen oder Tür manuell auswählen.');
-    scanning=false;return;
-  }
-  navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:'environment'},width:{ideal:640},height:{ideal:640}}})
-  .then(stream=>{
-    videoStream=stream;
-    const v=document.getElementById('scan-vid');
-    v.srcObject=stream;
-    v.play().then(()=>{rafId=requestAnimationFrame(tick)});
-  })
-  .catch(err=>{
-    scanning=false;
-    if(err.name==='NotAllowedError')showErr('Kamera-Zugriff verweigert. Bitte in den Browser-Einstellungen erlauben und Seite neu laden.');
-    else if(err.name==='NotFoundError')showErr('Keine Kamera gefunden. Bitte Tür manuell auswählen.');
-    else showErr('Kamera-Fehler: '+err.message);
-  });
-}
+function startScanner(){ }
+function stopScanner(){ }
 
-function stopScanner(){
-  scanning=false;
-  if(rafId){cancelAnimationFrame(rafId);rafId=null}
-  if(videoStream){videoStream.getTracks().forEach(t=>t.stop());videoStream=null}
-  const v=document.getElementById('scan-vid');
-  v.srcObject=null;
-}
-
-const _canvas=document.createElement('canvas');
-const _ctx=_canvas.getContext('2d',{willReadFrequently:true});
-let _lastScan=0;
-
-function tick(ts){
-  if(!scanning)return;
-  const v=document.getElementById('scan-vid');
-  if(v.readyState===v.HAVE_ENOUGH_DATA&&v.videoWidth>0){
-    if(ts-_lastScan>150){
-      _lastScan=ts;
-      const s=Math.min(v.videoWidth,v.videoHeight);
-      _canvas.width=s;_canvas.height=s;
-      const ox=(v.videoWidth-s)/2;const oy=(v.videoHeight-s)/2;
-      _ctx.drawImage(v,ox,oy,s,s,0,0,s,s);
-      const img=_ctx.getImageData(0,0,s,s);
-      const code=jsQR(img.data,img.width,img.height,{inversionAttempts:'dontInvert'});
-      if(code){onQR(code.data);return}
-    }
-  }
-  rafId=requestAnimationFrame(tick);
+function scanImage(input){
+  const file=input.files[0];
+  if(!file)return;
+  const img=new Image();
+  const url=URL.createObjectURL(file);
+  img.onload=()=>{
+    const c=document.createElement('canvas');
+    c.width=img.width;c.height=img.height;
+    const ctx=c.getContext('2d');
+    ctx.drawImage(img,0,0);
+    const data=ctx.getImageData(0,0,c.width,c.height);
+    const code=jsQR(data.data,data.width,data.height);
+    URL.revokeObjectURL(url);
+    if(code){onQR(code.data)}
+    else{alert('Kein QR-Code erkannt. Bitte nochmal versuchen oder Tür manuell auswählen.');}
+  };
+  img.src=url;
 }
 
 function onQR(text){
