@@ -1,11 +1,14 @@
-const CACHE = 'brandschutz-v2';
+const CACHE = 'brandschutz-v3';
 const ASSETS = [
   './start.html',
   './pruefung.html',
+  './verwaltung.html',
+  './index.html',
   './manifest.json',
   './icon-192.png',
   './icon-512.png',
-  'https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js'
+  'https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js',
+  'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js'
 ];
 
 // Install: cache everything
@@ -38,7 +41,7 @@ self.addEventListener('fetch', e => {
       }).catch(() => {
         // Offline fallback for navigation
         if (e.request.mode === 'navigate') {
-          return caches.match('./pruefung.html');
+          return caches.match('./start.html');
         }
       });
     })
