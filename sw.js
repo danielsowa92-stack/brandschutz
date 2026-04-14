@@ -1,4 +1,4 @@
-const CACHE = 'brandschutz-v3';
+const CACHE = 'brandschutz-v4-20260414';
 const ASSETS = [
   './start.html',
   './pruefung.html',
