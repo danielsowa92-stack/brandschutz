@@ -64,7 +64,7 @@ Mangel erledigt? Mangel öffnen → **„Mangel behoben“** mit Datum. Wird ein
 Alles unter **Mehr**:
 
 - **Excel-Export (.xlsx)** – Blätter *Türen*, *Prüfungen*, *Offene Mängel*, *Bestellliste*; alle Objekte oder ein bestimmtes Objekt.
-- **Prüfbericht (PDF)** für den Kunden – im jeweiligen Objekt.
+- **Prüfbericht (PDF)** für den Kunden – im jeweiligen Objekt. Wahlweise unterschreibt der Kunde direkt auf dem Handy; die eigene Prüfer-Unterschrift wird einmal unter *Mehr → Einstellungen* hinterlegt und dann automatisch eingefügt.
 - **Backup erstellen** – eine JSON-Datei mit allen Daten **inkl. Fotos**. Danach öffnet sich das Android-Teilen-Menü (Mail, WhatsApp, Google Drive, „In Dateien speichern“ …).
   → **Regelmäßig machen und außerhalb des Handys ablegen!**
 - **Backup wiederherstellen** – ersetzt **alle** Daten in der App durch das Backup (z. B. auf einem neuen Handy).

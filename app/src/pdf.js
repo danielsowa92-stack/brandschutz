@@ -116,6 +116,7 @@ export function reportPdf(object, doors, inspectionsByDoor, defects, opts = {}) 
     },
   });
 
+  let photosAdded = false;
   if (defects.length) {
     doc.addPage();
     doc.setFont('helvetica', 'bold');
@@ -132,6 +133,7 @@ export function reportPdf(object, doors, inspectionsByDoor, defects, opts = {}) 
     const photos = opts.photos || new Map();
     const withPhotos = defects.filter((i) => (photos.get(i.id) || []).length);
     if (withPhotos.length) {
+      photosAdded = true;
       doc.addPage();
       doc.setFont('helvetica', 'bold');
       doc.setFontSize(13);
@@ -151,6 +153,41 @@ export function reportPdf(object, doors, inspectionsByDoor, defects, opts = {}) 
         py += 50;
       }
     }
+  }
+
+  // Unterschriften (Prüfer / Auftraggeber)
+  if (opts.sigPruefer || opts.sigKunde) {
+    // direkt unter der letzten Tabelle, sonst (Fotoseite oder zu wenig Platz) auf neuer Seite
+    let y0 = photosAdded ? 0 : (doc.lastAutoTable?.finalY || 0) + 14;
+    if (!y0 || y0 > 225) { doc.addPage(); y0 = 24; }
+    doc.setTextColor(0);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(12);
+    doc.text('Bestätigung', 14, y0);
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(9);
+    doc.text(doc.splitTextToSize(`Die Prüfung der oben aufgeführten Türen im Objekt ${object.name} wurde durchgeführt. Festgestellte Mängel sind im Bericht aufgeführt.`, 182), 14, y0 + 6);
+    const box = (x, label, sig) => {
+      const by = y0 + 16;
+      if (sig?.dataUrl) {
+        try {
+          const p = doc.getImageProperties(sig.dataUrl);
+          const maxW = 75, maxH = 26;
+          const k = Math.min(maxW / p.width, maxH / p.height);
+          doc.addImage(sig.dataUrl, 'PNG', x, by + (maxH - p.height * k), p.width * k, p.height * k);
+        } catch (e) { /* Bild fehlerhaft */ }
+      }
+      doc.setDrawColor(80);
+      doc.setLineWidth(0.3);
+      doc.line(x, by + 28, x + 80, by + 28);
+      doc.setFontSize(8);
+      doc.setTextColor(90);
+      doc.text(`${label}${sig?.name ? ': ' + sig.name : ''}`, x, by + 32);
+      doc.text(`Datum: ${fmtDate(today)}`, x, by + 36);
+      doc.setTextColor(0);
+    };
+    box(14, 'Prüfer', opts.sigPruefer);
+    box(112, 'Auftraggeber / Kunde', opts.sigKunde);
   }
 
   const pages = doc.getNumberOfPages();

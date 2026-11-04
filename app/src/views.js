@@ -12,6 +12,7 @@ import { scanQr, scanSupported } from './scanner.js';
 import { qrDataUrl, labelSheet, reportPdf } from './pdf.js';
 import { saveAndShare, saveFile, shareFile, listExports, deleteExport, pickFile, stamp, safeName, base64ToBlob } from './files.js';
 import { buildExcel } from './excel.js';
+import { captureSignature } from './signature.js';
 import { Share } from '@capacitor/share';
 import { readSheet } from 'read-excel-file/universal';
 import writeExcelFile from 'write-excel-file/universal';
@@ -282,6 +283,24 @@ async function objectView({ params, view }) {
 async function createReport(o) {
   const doors = await repo.listDoors(o.id);
   if (!doors.length) return toast('Keine Türen vorhanden');
+  // Unterschriften abfragen
+  const ownSig = await repo.getSetting('signatur_pruefer', null);
+  const choice = await dialog({
+    title: 'Prüfbericht erstellen',
+    html: `<p>Soll der Kunde den Bericht auf dem Handy unterschreiben?</p>
+      ${ownSig ? '<p class="small muted">Ihre hinterlegte Unterschrift wird automatisch eingefügt.</p>' : '<p class="small muted">Tipp: Unter „Mehr → Einstellungen“ können Sie Ihre eigene Unterschrift hinterlegen.</p>'}`,
+    buttons: [
+      { label: 'Abbrechen', value: null },
+      { label: 'Ohne Unterschrift', value: 'ohne' },
+      { label: 'Kunde unterschreibt', value: 'mit', cls: 'btn-primary' },
+    ],
+  });
+  if (!choice) return;
+  let sigKunde = null;
+  if (choice === 'mit') {
+    sigKunde = await captureSignature({ title: 'Unterschrift Auftraggeber / Kunde', nameLabel: 'Name in Druckbuchstaben', name: o.kunde || '', hint: `Bestätigung der Prüfung im Objekt ${o.name}` });
+    if (!sigKunde) return;
+  }
   toast('Bericht wird erstellt …');
   const byDoor = new Map();
   for (const d of doors) byDoor.set(d.id, await repo.listInspections(d.id));
@@ -297,6 +316,8 @@ async function createReport(o) {
     pruefer: await repo.getSetting('pruefer', ''),
     firma: await repo.getSetting('firma', ''),
     photos,
+    sigPruefer: ownSig ? { dataUrl: ownSig, name: await repo.getSetting('pruefer', '') } : null,
+    sigKunde,
   });
   await saveAndShare(`Pruefbericht_${safeName(o.kuerzel)}_${isoDate()}.pdf`, blob, `Prüfbericht ${o.name}`);
 }
@@ -794,6 +815,7 @@ async function moreView({ view }) {
   const objects = await repo.listObjects();
   const files = await listExports();
   const lastBackup = await repo.getSetting('last_backup', null);
+  const ownSig = await repo.getSetting('signatur_pruefer', null);
   view.innerHTML = `
     <div class="card">
       <div class="card-title">📊 Excel-Export (.xlsx)</div>
@@ -830,6 +852,8 @@ async function moreView({ view }) {
       <div class="field"><label>Prüfer (Vorbelegung)</label><input type="text" id="s-pruefer" value="${esc(await repo.getSetting('pruefer', ''))}"></div>
       <div class="field"><label>Firma (für Prüfbericht)</label><input type="text" id="s-firma" value="${esc(await repo.getSetting('firma', ''))}"></div>
       <a class="btn btn-block" href="#/checkliste" style="margin-bottom:8px">Checkliste bearbeiten</a>
+      <button class="btn btn-block" id="s-sig" style="margin-bottom:8px">✍️ ${ownSig ? 'Eigene Unterschrift ändern' : 'Eigene Unterschrift hinterlegen'}</button>
+      ${ownSig ? `<div style="text-align:center;margin-bottom:8px"><img src="${ownSig}" alt="Unterschrift" style="max-height:50px;max-width:200px"> <button class="btn" id="s-sig-del" style="min-height:36px;padding:6px 10px">Entfernen</button></div>` : ''}
       ${await notificationSettingsHtml()}
     </div>
     <div class="card">
@@ -893,6 +917,16 @@ async function moreView({ view }) {
   }));
   $('#s-pruefer').onchange = (e) => repo.setSetting('pruefer', e.target.value.trim()).then(() => toast('Gespeichert'));
   $('#s-firma').onchange = (e) => repo.setSetting('firma', e.target.value.trim()).then(() => toast('Gespeichert'));
+  $('#s-sig').onclick = async () => {
+    const r = await captureSignature({ title: 'Eigene Unterschrift (Prüfer)', nameLabel: 'Name', name: await repo.getSetting('pruefer', ''), hint: 'Wird automatisch in jeden Prüfbericht eingefügt.' });
+    if (!r) return;
+    await repo.setSetting('signatur_pruefer', r.dataUrl);
+    if (r.name) await repo.setSetting('pruefer', r.name);
+    toast('Unterschrift gespeichert');
+    rerender();
+  };
+  const sd = $('#s-sig-del');
+  if (sd) sd.onclick = async () => { await repo.setSetting('signatur_pruefer', null); rerender(); };
   bindNotificationSettings();
 }
 
