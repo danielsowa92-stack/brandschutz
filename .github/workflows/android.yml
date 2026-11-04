@@ -1,0 +1,92 @@
+name: Android-APK
+
+on:
+  push:
+  workflow_dispatch:
+
+permissions:
+  contents: write   # für das Veröffentlichen von Releases
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: app
+    env:
+      # fortlaufende Versionsnummer → jedes Update ist höher als das vorige
+      VERSION_CODE: ${{ github.run_number }}
+      VERSION_NAME: 1.0.${{ github.run_number }}
+      HAS_KEYSTORE: ${{ secrets.KEYSTORE_BASE64 != '' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: app/package-lock.json
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+
+      # Android-SDK ist auf den GitHub-Runnern vorinstalliert (ANDROID_HOME)
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Abhängigkeiten installieren
+        run: npm ci
+
+      - name: Tests
+        run: npm test
+
+      - name: Web-App bauen und nach Android kopieren
+        run: |
+          npm run build
+          npx cap sync android
+
+      - name: Signaturschlüssel bereitstellen
+        if: env.HAS_KEYSTORE == 'true'
+        env:
+          KS_B64: ${{ secrets.KEYSTORE_BASE64 }}
+          KS_PW: ${{ secrets.KEYSTORE_PASSWORD }}
+        run: |
+          echo "$KS_B64" | tr -d ' \r\n' | base64 -d > "$RUNNER_TEMP/release.keystore"
+          echo "KEYSTORE_FILE=$RUNNER_TEMP/release.keystore" >> "$GITHUB_ENV"
+          echo "KEYSTORE_PASSWORD=$KS_PW" >> "$GITHUB_ENV"
+
+      - name: APK bauen (signiert)
+        if: env.HAS_KEYSTORE == 'true'
+        working-directory: app/android
+        run: |
+          chmod +x gradlew
+          ./gradlew assembleRelease --no-daemon
+          cp app/build/outputs/apk/release/app-release.apk ../Brandschutz-Pruefung.apk
+
+      - name: APK bauen (Debug – Secret KEYSTORE_BASE64 fehlt!)
+        if: env.HAS_KEYSTORE != 'true'
+        working-directory: app/android
+        run: |
+          echo "::warning::Kein Signaturschlüssel hinterlegt. Debug-APK ist NICHT updatefähig. Siehe README → Einrichtung."
+          chmod +x gradlew
+          ./gradlew assembleDebug --no-daemon
+          cp app/build/outputs/apk/debug/app-debug.apk ../Brandschutz-Pruefung-DEBUG.apk
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Brandschutz-Pruefung-${{ env.VERSION_NAME }}
+          path: app/Brandschutz-Pruefung*.apk
+          retention-days: 30
+
+      - name: Release veröffentlichen (nur main, nur signiert)
+        if: github.ref == 'refs/heads/main' && env.HAS_KEYSTORE == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          COMMIT_MSG: ${{ github.event.head_commit.message }}
+        run: |
+          gh release create "v${VERSION_NAME}" Brandschutz-Pruefung.apk \
+            --repo "${{ github.repository }}" \
+            --title "Version ${VERSION_NAME}" \
+            --notes "Automatisch gebaut aus ${GITHUB_SHA::7}: ${COMMIT_MSG}" \
+            --latest

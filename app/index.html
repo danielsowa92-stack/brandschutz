@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#c8381e">
+<title>Brandschutz-Prüfung</title>
+<link rel="stylesheet" href="/src/style.css">
+</head>
+<body>
+<header class="bar">
+  <button class="bar-back" id="bar-back" aria-label="Zurück" hidden>‹</button>
+  <div class="bar-titles">
+    <div class="bar-title" id="bar-title">Brandschutz-Prüfung</div>
+    <div class="bar-sub" id="bar-sub"></div>
+  </div>
+</header>
+<main id="view" class="page"></main>
+<nav class="tabbar" id="tabbar">
+  <a href="#/" data-tab="home"><span class="ti">🏠</span>Start</a>
+  <a href="#/objekte" data-tab="objekte"><span class="ti">🏢</span>Objekte</a>
+  <button id="tab-scan" class="tab-scan" aria-label="QR scannen"><span class="ti">⌗</span>Scan</button>
+  <a href="#/suche" data-tab="suche"><span class="ti">🔎</span>Suche</a>
+  <a href="#/mehr" data-tab="mehr"><span class="ti">☰</span>Mehr</a>
+</nav>
+<div id="toast"></div>
+<script type="module" src="/src/main.js"></script>
+</body>
+</html>
