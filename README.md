@@ -44,6 +44,7 @@ Android akzeptiert nur Updates mit gleicher Signatur – deshalb ist der Schlüs
 
 1. **Objekte → + Neues Objekt**: Name, Kürzel (z. B. `RM`), Kunde, Adresse.
 2. Im Objekt **+ Tür hinzufügen**: Die Tür-ID wird automatisch vergeben (`RM-0001`, `RM-0002`, …).
+   Oder **📥 Türen aus Excel**: vorhandene Türliste des Kunden (.xlsx/.csv) einlesen. Die Spalten (Position, Geschoss, Raum, Typ, Hersteller, Flügel, Feststellanlage, Intervall, Notiz, optional Tür-ID und Objekt) werden automatisch erkannt und können angepasst werden. Eine leere Vorlage lässt sich dort erzeugen.
 3. Im Objekt **QR-Etiketten (PDF)** → Druckbogen A4 mit 3 × 8 Etiketten (70 × 37 mm, z. B. Avery Zweckform 3474) drucken und an die Türen kleben.
 4. Vor Ort: **Scan** (roter Knopf unten) → QR-Code in den Rahmen halten (🔦 Licht bei dunklen Fluren).
    - Bekannte Tür → Türansicht mit letzter Prüfung → **Prüfung erfassen**.
@@ -52,8 +53,9 @@ Android akzeptiert nur Updates mit gleicher Signatur – deshalb ist der Schlüs
    - **„Alles in Ordnung“** = ein Tipp, gespeichert, fertig.
    - Bei Mangel: Checkliste-Punkt auf **Mangel** tippen → Beschreibung, Maßnahme (reparieren / bestellen / vor Ort erledigt), Material und Fotos erfassen.
    - Die nächste Prüfung wird aus dem Intervall berechnet (Standard 12 Monate) und kann geändert werden.
-6. QR-Code nicht lesbar? **Suche** → nach ID, Positionsnummer, Geschoss oder Raum suchen.
-7. **Start** zeigt: überfällig, in 30 Tagen fällig, offene Mängel, Bestellliste, noch nie geprüft.
+6. **🚶 Rundgang** (im Objekt): alle oder nur fällige Türen eines Objekts abarbeiten. Fortschritt „8 von 23 geprüft“, nach jeder Prüfung ein Knopf zur nächsten offenen Tür, am Ende direkt den Prüfbericht erstellen.
+7. QR-Code nicht lesbar? **Suche** → nach ID, Positionsnummer, Geschoss oder Raum suchen.
+8. **Start** zeigt: überfällig, in 30 Tagen fällig, offene Mängel, Bestellliste, noch nie geprüft.
 
 Mangel erledigt? Mangel öffnen → **„Mangel behoben“** mit Datum. Wird eine Tür später „in Ordnung“ geprüft, fragt die App, ob offene Mängel als behoben markiert werden sollen.
 

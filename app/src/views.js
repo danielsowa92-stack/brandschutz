@@ -1,7 +1,7 @@
 // Alle Ansichten der App
 import * as repo from './repo.js';
 import {
-  STATUS, MASSNAHMEN, TUERTYPEN, BEDINGUNGEN, DEFAULT_CHECKLIST,
+  STATUS, MASSNAHMEN, TUERTYPEN, BEDINGUNGEN, DEFAULT_CHECKLIST, IMPORT_FIELDS, guessMapping, mapImportRows, parseCsv,
   isoDate, addMonths, fmtDate, checklistFor, nextDoorId, parseScan, suggestKuerzel, normalizeKuerzel,
 } from './logic.js';
 import {
@@ -13,6 +13,8 @@ import { qrDataUrl, labelSheet, reportPdf } from './pdf.js';
 import { saveAndShare, saveFile, shareFile, listExports, deleteExport, pickFile, stamp, safeName, base64ToBlob } from './files.js';
 import { buildExcel } from './excel.js';
 import { Share } from '@capacitor/share';
+import { readSheet } from 'read-excel-file/universal';
+import writeExcelFile from 'write-excel-file/universal';
 import { buildBackup, restoreBackup, importLegacyData, detectFormat } from './backup.js';
 import { takePhoto, photoDataUrl, deletePhotoFiles } from './photos.js';
 import { checkForUpdate, openDownload, installedVersion } from './update.js';
@@ -74,7 +76,8 @@ async function homeView({ view }) {
         <p class="muted">Lege zuerst ein Objekt (Gebäude/Kunde) und dessen Türen an – oder übernimm die Daten aus der alten Web-Version.</p>
         <div class="btn-row" style="margin-top:12px;margin-bottom:0">
           <a class="btn btn-primary" href="#/objekt-neu">+ Objekt anlegen</a>
-          <a class="btn" href="#/mehr">Daten importieren</a>
+          <a class="btn" href="#/import-excel">Türliste aus Excel</a>
+          <a class="btn" href="#/mehr">Alte Web-Daten</a>
         </div>
       </div>` : ''}
     <div class="tiles">
@@ -103,6 +106,16 @@ async function homeBanners(doorCount) {
         <b>💾 ${days === null ? 'Noch kein Backup erstellt' : `Letztes Backup vor ${days} Tagen`}</b>
         <p class="small" style="margin:4px 0 10px">Bei Verlust oder Defekt des Handys sind sonst alle Prüfdaten weg.</p>
         <button class="btn btn-primary btn-block" id="bn-backup">Jetzt Backup erstellen & sichern</button></div>`);
+    }
+  }
+  const round = await repo.getSetting('rundgang', null);
+  if (round) {
+    const o = await repo.getObject(round.objectId);
+    if (o) {
+      const st = await repo.roundStatus(o.id, round.start, round.nurFaellig);
+      parts.unshift(`<a class="card banner-ok" href="#/rundgang" style="display:block">
+        <b>🚶 Rundgang ${st.open.length ? 'läuft' : 'abgeschlossen'}: ${esc(o.name)}</b>
+        <div class="small" style="margin-top:4px">${st.done.length} von ${st.doors.length} Türen geprüft – ${st.open.length ? 'antippen zum Fortsetzen' : 'Bericht erstellen und Rundgang beenden'}</div></a>`);
     }
   }
   box.innerHTML = parts.join('');
@@ -214,6 +227,7 @@ async function objectView({ params, view }) {
   setTitle(o.name, `${o.kuerzel}${o.kunde ? ' · ' + o.kunde : ''}`);
   const doors = await repo.listDoors(o.id);
   const defects = await repo.openDefects(o.id);
+  const round = await repo.getSetting('rundgang', null);
   view.innerHTML = `
     <div class="card">
       <dl class="kv">
@@ -229,13 +243,17 @@ async function objectView({ params, view }) {
       <button class="btn" id="o-qr">🏷️ QR-Etiketten (PDF)</button>
       <button class="btn" id="o-report">📄 Prüfbericht (PDF)</button>
       <button class="btn" id="o-xlsx">📊 Excel-Export</button>
-      <a class="btn" href="#/objekt/${o.id}/bearbeiten">✏️ Bearbeiten</a>
+      <a class="btn" href="#/import-excel?objekt=${o.id}">📥 Türen aus Excel</a>
     </div>
+    ${doors.length ? `<button class="btn btn-big ${round && round.objectId === o.id ? 'btn-ok' : ''}" id="o-round" style="margin-bottom:.875rem">🚶 ${round && round.objectId === o.id ? 'Rundgang fortsetzen' : 'Rundgang starten'}</button>` : ''}
+    <a class="btn btn-block" href="#/objekt/${o.id}/bearbeiten">✏️ Objekt bearbeiten</a>
     <div class="sec">Türen</div>
     ${doors.length ? `<div class="list">${doors.map((d) => doorRow(d, `<div style="margin-top:4px">${dueBadge(d.naechste)}</div>`)).join('')}</div>`
     : '<div class="empty">Noch keine Türen in diesem Objekt.</div>'}
     <button class="btn btn-danger btn-block" id="o-del" style="margin-top:1rem">Objekt löschen</button>`;
 
+  const rb = $('#o-round');
+  if (rb) rb.onclick = () => startRound(o, round);
   $('#o-qr').onclick = async () => {
     if (!doors.length) return toast('Keine Türen vorhanden');
     toast('PDF wird erstellt …');
@@ -253,6 +271,7 @@ async function objectView({ params, view }) {
     if (!(await confirmDialog('Objekt löschen?', `„${o.name}“ mit ${n} Tür(en) und allen Prüfungen wird endgültig gelöscht.`))) return;
     if (n > 0 && !(await confirmDialog('Wirklich löschen?', `Es werden ${n} Türen inkl. Prüfverlauf gelöscht. Das kann nicht rückgängig gemacht werden.`, 'Endgültig löschen'))) return;
     const photos = await repo.deleteObject(o.id);
+    if (round && round.objectId === o.id) await repo.setSetting('rundgang', null);
     await deletePhotoFiles(photos);
     afterChange();
     toast('Objekt gelöscht');
@@ -339,6 +358,7 @@ async function doorView({ params, query, view }) {
       <div class="success-title">${last.status === 'ok' ? '✅ Prüfung gespeichert' : last.status === 'mangel' ? '⚠️ Mangel gespeichert' : '⛔ Außer Betrieb gespeichert'}</div>
       <div class="small" style="margin-top:4px">Nächste Prüfung: ${fmtDate(last.naechste)}</div>
     </div>
+    <div id="round-next"></div>
     <button class="hero-scan" id="d-next"><span class="ico">⌗</span>Nächste Tür scannen</button>` : ''}
     <div class="card">
       <div style="display:flex;justify-content:space-between;gap:8px;align-items:flex-start">
@@ -385,7 +405,10 @@ async function doorView({ params, query, view }) {
       <a class="btn" href="#/tuer/${enc(d.id)}/bearbeiten">✏️ Bearbeiten</a>
       <button class="btn btn-danger" id="d-del">Tür löschen</button>
     </div>`;
-  if (saved) $('#d-next').onclick = startScanFlow;
+  if (saved) {
+    $('#d-next').onclick = startScanFlow;
+    roundNextBox(d);
+  }
   $('#d-qrpdf').onclick = async () => {
     const blob = await labelSheet([d], d.objekt);
     await saveAndShare(`QR_${safeName(d.id)}.pdf`, blob, `QR-Etikett ${d.id}`);
@@ -785,6 +808,11 @@ async function moreView({ view }) {
       <button class="btn btn-block" id="b-restore">Backup wiederherstellen …</button>
     </div>
     <div class="card">
+      <div class="card-title">📥 Türliste aus Excel importieren</div>
+      <p class="muted small" style="margin-bottom:10px">Vorhandene Türlisten des Kunden (.xlsx oder .csv) einlesen, Spalten zuordnen, fertig.</p>
+      <a class="btn btn-block" href="#/import-excel">Excel-Import öffnen</a>
+    </div>
+    <div class="card">
       <div class="card-title">⬇️ Import aus alter Web-Version</div>
       <p class="muted small" style="margin-bottom:10px">In der alten Web-App unter <b>Verwaltung → Prüfprotokoll → „Daten für Android-App exportieren“</b> eine JSON-Datei erzeugen und hier auswählen. Vorhandene Tür-IDs werden übersprungen.</p>
       <button class="btn btn-block" id="l-import">Datei der Web-Version importieren …</button>
@@ -916,6 +944,183 @@ async function checklistView({ view }) {
 }
 
 // =====================================================================
+// Rundgang
+// =====================================================================
+async function startRound(o, current) {
+  if (current && current.objectId === o.id) { go('#/rundgang'); return; }
+  if (current) {
+    const other = await repo.getObject(current.objectId);
+    if (other && !(await confirmDialog('Anderer Rundgang läuft', `Der Rundgang „${other.name}“ wird beendet.`, 'Neuen starten', false))) return;
+  }
+  const v = await dialog({
+    title: `Rundgang ${o.name}`,
+    html: '<p>Welche Türen sollen in den Rundgang?</p>',
+    buttons: [
+      { label: 'Abbrechen', value: null },
+      { label: 'Nur fällige', value: 'faellig' },
+      { label: 'Alle Türen', value: 'alle', cls: 'btn-primary' },
+    ],
+  });
+  if (!v) return;
+  await repo.setSetting('rundgang', { objectId: o.id, start: today(), nurFaellig: v === 'faellig' });
+  go('#/rundgang');
+}
+
+async function roundView({ view }) {
+  const round = await repo.getSetting('rundgang', null);
+  const o = round && (await repo.getObject(round.objectId));
+  if (!o) {
+    setTitle('Rundgang');
+    view.innerHTML = '<div class="empty">Kein Rundgang aktiv.<br>Rundgang im jeweiligen Objekt starten.<br><br><a class="btn btn-primary" href="#/objekte">Zu den Objekten</a></div>';
+    return;
+  }
+  const st = await repo.roundStatus(o.id, round.start, round.nurFaellig);
+  const pct = st.doors.length ? Math.round((st.done.length / st.doors.length) * 100) : 0;
+  setTitle(`Rundgang ${o.name}`, `seit ${fmtDate(round.start)} · ${round.nurFaellig ? 'nur fällige Türen' : 'alle Türen'}`);
+  view.innerHTML = `
+    <div class="card">
+      <div style="display:flex;justify-content:space-between;align-items:baseline"><b style="font-size:20px">${st.done.length} / ${st.doors.length} geprüft</b><span class="muted">${pct} %</span></div>
+      <div class="progress"><div style="width:${pct}%"></div></div>
+    </div>
+    ${st.open.length ? `<button class="hero-scan" id="r-scan"><span class="ico">⌗</span>Tür scannen</button>
+      <div class="sec">Noch offen (${st.open.length}) – antippen zum Prüfen</div>
+      <div class="list">${st.open.map((d) => `<a class="row" href="#/tuer/${enc(d.id)}/pruefen">
+        <div class="row-main">
+          <div><span class="tag">${esc(d.id)}</span>${d.position ? ` <span class="muted">Pos. ${esc(d.position)}</span>` : ''}${d.typ ? ` <span class="typ">${esc(d.typ)}</span>` : ''}</div>
+          <div class="row-title">${esc(doorLage(d) || '–')}</div>
+          <div style="margin-top:4px">${dueBadge(d.naechste)}</div>
+        </div><div class="row-side" style="font-size:24px;color:var(--r)">›</div></a>`).join('')}</div>`
+    : `<div class="success ok"><div class="success-title">🎉 Rundgang abgeschlossen</div><div class="small">Alle ${st.doors.length} Türen geprüft.</div></div>
+      <button class="btn btn-primary btn-big" id="r-report" style="margin-bottom:.875rem">📄 Prüfbericht erstellen</button>`}
+    ${st.done.length ? `<div class="sec">Erledigt (${st.done.length})</div>
+      <div class="list">${st.done.map((d) => doorRow(d)).join('')}</div>` : ''}
+    <button class="btn btn-block" id="r-end" style="margin-top:.5rem">Rundgang beenden</button>`;
+  const sc = $('#r-scan');
+  if (sc) sc.onclick = startScanFlow;
+  const rr = $('#r-report');
+  if (rr) rr.onclick = () => createReport(o);
+  $('#r-end').onclick = async () => {
+    if (st.open.length && !(await confirmDialog('Rundgang beenden?', `${st.open.length} Türen sind noch nicht geprüft. Sie bleiben in den Fälligkeitslisten.`, 'Beenden', false))) return;
+    await repo.setSetting('rundgang', null);
+    toast('Rundgang beendet');
+    go(`#/objekt/${o.id}`, true);
+  };
+}
+
+/** Nach dem Speichern einer Prüfung: Hinweis auf nächste offene Tür im Rundgang */
+async function roundNextBox(d) {
+  const box = $('#round-next');
+  const round = await repo.getSetting('rundgang', null);
+  if (!box || !round || round.objectId !== d.object_id) return;
+  const st = await repo.roundStatus(d.object_id, round.start, round.nurFaellig);
+  if (!st.open.length) {
+    box.innerHTML = `<a class="card banner-ok" href="#/rundgang" style="display:block"><b>🎉 Rundgang abgeschlossen</b><div class="small">Alle ${st.doors.length} Türen geprüft – Bericht erstellen</div></a>`;
+    return;
+  }
+  const n = st.open[0];
+  box.innerHTML = `<div class="card banner-ok">
+    <b>🚶 Rundgang: ${st.done.length} von ${st.doors.length} geprüft</b>
+    <a class="btn btn-ok btn-block" href="#/tuer/${enc(n.id)}/pruefen" style="margin-top:10px">Nächste: ${esc(n.position ? 'Pos. ' + n.position + ' · ' : '')}${esc(doorLage(n) || n.id)}</a>
+    <a class="btn btn-block" href="#/rundgang" style="margin-top:8px">Liste aller offenen Türen</a></div>`;
+}
+
+// =====================================================================
+// Excel-Import Türliste
+// =====================================================================
+async function readTable(file) {
+  if (/\.csv$|text\/csv|text\/plain/i.test(file.name + ' ' + file.type)) {
+    const buf = new Uint8Array(await file.arrayBuffer());
+    let text = new TextDecoder('utf-8').decode(buf);
+    if (text.includes('\uFFFD')) text = new TextDecoder('windows-1252').decode(buf); // Excel-CSV (ANSI)
+    return parseCsv(text);
+  }
+  const rows = await readSheet(await file.arrayBuffer());
+  return rows;
+}
+
+async function excelImportView({ query, view }) {
+  setTitle('Türliste aus Excel', '.xlsx oder .csv');
+  const objects = await repo.listObjects();
+  const preObj = Number(query.get('objekt')) || null;
+  view.innerHTML = `
+    <div class="card">
+      <p class="small" style="margin-bottom:10px">Die erste Zeile muss die Spaltenüberschriften enthalten (z. B. Position, Geschoss, Raum, Typ …). Die Zuordnung wird danach angezeigt und kann angepasst werden.</p>
+      <button class="btn btn-primary btn-big" id="x-pick" style="margin-bottom:8px">Datei auswählen …</button>
+      <button class="btn btn-block" id="x-tpl">Leere Vorlage (.xlsx) erstellen</button>
+    </div>
+    <div id="x-step2"></div>`;
+  $('#x-tpl').onclick = async () => {
+    const H = (v) => ({ value: v, fontWeight: 'bold', backgroundColor: '#F4E1DC' });
+    const head = ['Tür-ID', 'Objekt', 'Position', 'Geschoss', 'Raum', 'Typ', 'Hersteller', 'Flügel', 'Feststellanlage', 'Intervall', 'Notiz'];
+    const ex = ['', '', '1', 'EG', 'Treppenhaus Nord', 'T30', 'Hörmann', '1', 'nein', '12', 'Beispielzeile – löschen'];
+    const blob = await writeExcelFile([{ sheet: 'Türen', data: [head.map(H), ex.map((v) => ({ value: v, type: String }))], columns: head.map(() => ({ width: 16 })), stickyRowsCount: 1 }]).toBlob();
+    await saveAndShare('Tuerliste_Vorlage.xlsx', blob, 'Türliste-Vorlage');
+  };
+  $('#x-pick').onclick = async () => {
+    const file = await pickFile('.xlsx,.csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,text/csv,*/*');
+    if (!file) return;
+    let rows;
+    try { rows = await readTable(file); }
+    catch (e) { return alertDialog('Datei nicht lesbar', 'Bitte eine .xlsx- oder .csv-Datei wählen. (Alte .xls-Dateien vorher in Excel als .xlsx speichern.)'); }
+    rows = (rows || []).filter((r) => r && r.some((c) => String(c ?? '').trim()));
+    if (rows.length < 2) return alertDialog('Keine Daten', 'Die Datei enthält keine Zeilen unter der Überschrift.');
+    step2(file.name, rows);
+  };
+
+  const step2 = (name, rows) => {
+    const headers = rows[0].map((h, i) => String(h ?? '').trim() || `Spalte ${i + 1}`);
+    const data = rows.slice(1);
+    const mapping = guessMapping(headers);
+    const box = $('#x-step2');
+    box.innerHTML = `
+      <div class="card">
+        <div class="card-title">${esc(name)} · ${data.length} Zeilen</div>
+        <div class="field"><label>Objekt für alle Türen</label>
+          <select id="x-obj"><option value="">– aus Spalte „Objekt“ bzw. bitte wählen –</option>${objects.map((o) => `<option value="${o.id}" ${o.id === preObj ? 'selected' : ''}>${esc(o.name)} (${esc(o.kuerzel)})</option>`).join('')}</select>
+          <div class="hint">Ist unten eine Spalte „Objekt“ zugeordnet, gilt das gewählte Objekt nur für Zeilen ohne Eintrag. Unbekannte Objektnamen werden neu angelegt.</div></div>
+        <div class="sec" style="margin-top:0">Spalten zuordnen</div>
+        ${IMPORT_FIELDS.map((f) => `<div class="field" style="margin-bottom:8px"><label>${esc(f.label)}${f.hint ? ` <span style="font-weight:400">(${esc(f.hint)})</span>` : ''}</label>
+          <select data-f="${f.key}"><option value="-1">– nicht vorhanden –</option>${headers.map((h, i) => `<option value="${i}" ${mapping[f.key] === i ? 'selected' : ''}>${esc(h)}</option>`).join('')}</select></div>`).join('')}
+      </div>
+      <div class="card"><div class="card-title">Vorschau</div><div id="x-prev"></div></div>
+      <button class="btn btn-primary btn-big" id="x-go">Importieren</button>`;
+    const read = () => {
+      const m = {};
+      $$('[data-f]', box).forEach((sel) => { m[sel.dataset.f] = Number(sel.value); });
+      return m;
+    };
+    const preview = () => {
+      const list = mapImportRows(data, read());
+      $('#x-prev').innerHTML = `<p class="small" style="margin-bottom:8px"><b>${list.length}</b> Türen erkannt${data.length - list.length ? `, ${data.length - list.length} leere Zeilen ignoriert` : ''}.</p>`
+        + list.slice(0, 5).map((d) => `<div class="small" style="padding:6px 0;border-bottom:1px solid var(--b)">
+          ${d.id ? `<span class="tag">${esc(d.id)}</span> ` : '<span class="muted">(ID automatisch)</span> '}${d.position ? 'Pos. ' + esc(d.position) + ' · ' : ''}${esc([d.geschoss, d.raum].filter(Boolean).join(' · '))}
+          ${d.typ ? ` <span class="typ">${esc(d.typ)}</span>` : ''}${d.zweifluegelig ? ' · 2-flg.' : ''}${d.feststellanlage ? ' · FSA' : ''}${d.objekt ? ` · <i>${esc(d.objekt)}</i>` : ''}</div>`).join('')
+        + (list.length > 5 ? `<div class="muted small" style="margin-top:6px">… und ${list.length - 5} weitere</div>` : '');
+      return list;
+    };
+    $$('[data-f]', box).forEach((sel) => (sel.onchange = preview));
+    preview();
+    box.scrollIntoView({ behavior: 'smooth' });
+    $('#x-go').onclick = async () => {
+      const list = preview();
+      const objId = Number($('#x-obj').value) || null;
+      if (!list.length) return toast('Keine Türen erkannt – Zuordnung prüfen');
+      if (!objId && (read().objekt < 0 || list.some((d) => !d.objekt))) return toast('Bitte ein Objekt wählen');
+      if (!(await confirmDialog('Importieren?', `${list.length} Türen werden angelegt. Vorhandene Tür-IDs werden übersprungen.`, 'Importieren', false))) return;
+      const r = await repo.importDoorRows(list, objId);
+      afterChange();
+      await dialog({
+        title: 'Import abgeschlossen',
+        html: `<p><b>${r.tueren}</b> Türen angelegt${r.objekte ? `, <b>${r.objekte}</b> neue Objekte` : ''}.</p>
+          ${r.uebersprungen.length ? `<p class="small">Übersprungen (${r.uebersprungen.length}):<br>${r.uebersprungen.slice(0, 10).map(esc).join('<br>')}${r.uebersprungen.length > 10 ? '<br>…' : ''}</p>` : ''}
+          <p class="small">Tipp: Jetzt im Objekt „QR-Etiketten (PDF)“ drucken.</p>`,
+      });
+      go(objId ? `#/objekt/${objId}` : '#/objekte', true);
+    };
+  };
+}
+
+// =====================================================================
 // Routen: [Regex, Handler, aktiver Tab]
 // =====================================================================
 export const routes = [
@@ -932,6 +1137,8 @@ export const routes = [
   [/^\/pruefung\/(\d+)$/, inspectionView, 'objekte'],
   [/^\/pruefung\/(\d+)\/bearbeiten$/, (ctx) => inspectionFormView({ ...ctx, params: [null, ctx.params[0]] }), 'objekte'],
   [/^\/suche$/, searchView, 'suche'],
+  [/^\/rundgang$/, roundView, 'objekte'],
+  [/^\/import-excel$/, excelImportView, 'objekte'],
   [/^\/mehr$/, moreView, 'mehr'],
   [/^\/checkliste$/, checklistView, 'mehr'],
 ];

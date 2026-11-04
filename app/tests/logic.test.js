@@ -88,3 +88,42 @@ test('convertLegacy nutzt vorhandenes Objekt gleichen Namens', () => {
   assert.equal(r.objects.length, 0);
   assert.equal(r.doors[0].kuerzel, 'MUG');
 });
+
+import { guessMapping, mapImportRows, parseCsv, parseTyp } from '../src/logic.js';
+
+test('Import: Spalten erraten und Zeilen umwandeln', () => {
+  const headers = ['Lfd. Nr.', 'Etage', 'Raum', 'Türtyp', 'Hersteller', 'Flügel', 'FSA', 'Bemerkung'];
+  const m = guessMapping(headers);
+  assert.equal(m.position, 0);
+  assert.equal(m.geschoss, 1);
+  assert.equal(m.raum, 2);
+  assert.equal(m.typ, 3);
+  assert.equal(m.fluegel, 5);
+  assert.equal(m.feststellanlage, 6);
+  assert.equal(m.notiz, 7);
+  assert.equal(m.id, -1);
+  const d = mapImportRows([
+    [1, 'EG', 'Treppenhaus', 'T30-1-RS', 'Hörmann', '2-flg.', 'ja', ''],
+    ['', '', '', '', '', '', '', ''],
+    [2, '1. OG', 'Flur', 'EI2 90', '', '1', '', 'alt'],
+    [3, '', '', 'Stahltür', '', '', 'nein', ''],
+  ], m);
+  assert.equal(d.length, 3);
+  assert.deepEqual([d[0].position, d[0].typ, d[0].zweifluegelig, d[0].feststellanlage], ['1', 'T30', 1, 1]);
+  assert.equal(d[1].typ, 'T90');
+  assert.equal(d[1].zeile, 4);
+  assert.equal(d[2].typ, 'sonstige');
+  assert.match(d[2].notiz, /Stahltür/);
+});
+
+test('parseTyp', () => {
+  assert.equal(parseTyp('RS-1'), 'RS');
+  assert.equal(parseTyp('Rauchschutz'), 'RS');
+  assert.equal(parseTyp(''), '');
+});
+
+test('parseCsv', () => {
+  const r = parseCsv('﻿Pos;Raum;Notiz\r\n1;"Flur; Nord";"sagt ""hallo"""\n2;Keller;\n');
+  assert.deepEqual(r[1], ['1', 'Flur; Nord', 'sagt "hallo"']);
+  assert.deepEqual(r[2], ['2', 'Keller', '']);
+});

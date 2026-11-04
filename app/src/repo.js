@@ -1,6 +1,6 @@
 // Datenzugriff (Objekte, Türen, Prüfungen, Einstellungen)
 import { all, get, run, batch } from './db.js';
-import { DEFAULT_CHECKLIST, isoDate, addDays } from './logic.js';
+import { DEFAULT_CHECKLIST, isoDate, addDays, nextDoorId, suggestKuerzel } from './logic.js';
 
 const now = () => new Date().toISOString();
 
@@ -58,8 +58,8 @@ const DOOR_SELECT = `
     SELECT i.id FROM inspections i WHERE i.door_id = d.id ORDER BY i.datum DESC, i.id DESC LIMIT 1)`;
 
 export const listDoors = (objectId) => objectId
-  ? all(`${DOOR_SELECT} WHERE d.object_id = ? ORDER BY d.position COLLATE NOCASE, d.id`, [objectId])
-  : all(`${DOOR_SELECT} ORDER BY o.name COLLATE NOCASE, d.position COLLATE NOCASE, d.id`);
+  ? all(`${DOOR_SELECT} WHERE d.object_id = ? ORDER BY (d.position = ''), CAST(d.position AS INTEGER), d.position COLLATE NOCASE, d.id`, [objectId])
+  : all(`${DOOR_SELECT} ORDER BY o.name COLLATE NOCASE, (d.position = ''), CAST(d.position AS INTEGER), d.position COLLATE NOCASE, d.id`);
 
 export const getDoor = (id) => get(`${DOOR_SELECT} WHERE d.id = ?`, [id]);
 
@@ -234,4 +234,57 @@ export async function importLegacy({ objects, doors, inspections }) {
   }
   await batch(list);
   return { objekte: newObjects.length, tueren: newDoors.length, pruefungen: newInsp.length, uebersprungen: doors.length - newDoors.length };
+}
+
+/**
+ * Türen aus Excel-Import anlegen. defaultObjectId gilt für Zeilen ohne Objekt-Angabe.
+ * Unbekannte Objektnamen werden als neue Objekte angelegt. Vorhandene Tür-IDs werden übersprungen.
+ */
+export async function importDoorRows(rows, defaultObjectId) {
+  const objects = await all('SELECT id, kuerzel, name FROM objects');
+  const ids = new Set(await allDoorIds());
+  const allIds = [...ids];
+  const list = [];
+  const newObjects = [];
+  let skipped = [];
+  const findObj = (name) => {
+    const n = name.trim().toLowerCase();
+    return objects.find((o) => o.name.toLowerCase() === n || o.kuerzel.toLowerCase() === n);
+  };
+  for (const r of rows) {
+    let obj = r.objekt ? findObj(r.objekt) : objects.find((o) => o.id === defaultObjectId);
+    if (!obj && r.objekt) {
+      const kuerzel = suggestKuerzel(r.objekt, objects.map((o) => o.kuerzel));
+      obj = { id: null, kuerzel, name: r.objekt.trim(), isNew: true };
+      objects.push(obj);
+      newObjects.push(obj);
+    }
+    if (!obj) { skipped.push(`Zeile ${r.zeile}: kein Objekt`); continue; }
+    let id = r.id;
+    if (id && ids.has(id)) { skipped.push(`Zeile ${r.zeile}: ID ${id} existiert bereits`); continue; }
+    if (!id) id = nextDoorId(obj.kuerzel, allIds);
+    ids.add(id);
+    allIds.push(id);
+    const objRef = obj.isNew
+      ? { sql: '(SELECT id FROM objects WHERE kuerzel = ?)', val: obj.kuerzel }
+      : { sql: '?', val: obj.id };
+    list.push({ sql: `INSERT INTO doors(id, object_id, position, geschoss, raum, typ, hersteller, zweifluegelig, feststellanlage, intervall, notiz, created_at)
+      VALUES (?, ${objRef.sql}, ?,?,?,?,?,?,?,?,?,?)`,
+      params: [id, objRef.val, r.position, r.geschoss, r.raum, r.typ, r.hersteller, r.zweifluegelig, r.feststellanlage, r.intervall, r.notiz, now()] });
+  }
+  const objInserts = newObjects.map((o) => ({ sql: 'INSERT INTO objects(kuerzel, name, kunde, adresse, notiz, created_at) VALUES (?,?,?,?,?,?)',
+    params: [o.kuerzel, o.name, '', '', 'Aus Excel importiert', now()] }));
+  await batch([...objInserts, ...list]);
+  return { tueren: list.length, objekte: newObjects.length, uebersprungen: skipped };
+}
+
+// ---------- Rundgang ----------
+/** Türen eines Objekts mit Info, ob seit `start` geprüft */
+export async function roundStatus(objectId, start, nurFaellig, today = isoDate()) {
+  const doors = await listDoors(objectId);
+  const soon = addDays(today, 30);
+  const inRound = nurFaellig ? doors.filter((d) => !d.naechste || d.naechste <= soon || (d.last_datum && d.last_datum >= start)) : doors;
+  const done = inRound.filter((d) => d.last_datum && d.last_datum >= start);
+  const open = inRound.filter((d) => !(d.last_datum && d.last_datum >= start));
+  return { doors: inRound, done, open };
 }

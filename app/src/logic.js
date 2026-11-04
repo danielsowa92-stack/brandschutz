@@ -268,3 +268,128 @@ export function convertLegacy(input, existingObjects = []) {
   inspections.forEach((i) => delete i._ts);
   return { objects: objects.filter((o) => !o.existing), doors, inspections };
 }
+
+// ---------- Excel-/CSV-Import Türliste ----------
+
+export const IMPORT_FIELDS = [
+  { key: 'id', label: 'Tür-ID', hint: 'leer = automatisch' },
+  { key: 'objekt', label: 'Objekt', hint: 'leer = gewähltes Objekt' },
+  { key: 'position', label: 'Positionsnummer' },
+  { key: 'geschoss', label: 'Geschoss' },
+  { key: 'raum', label: 'Raum / Lage' },
+  { key: 'typ', label: 'Typ (T30/T90/RS)' },
+  { key: 'hersteller', label: 'Hersteller' },
+  { key: 'fluegel', label: 'Flügel (1/2)' },
+  { key: 'feststellanlage', label: 'Feststellanlage (ja/nein)' },
+  { key: 'intervall', label: 'Prüfintervall (Monate)' },
+  { key: 'notiz', label: 'Notiz' },
+];
+
+const HEADER_WORDS = {
+  id: ['türid', 'tuerid', 'id', 'türnummer', 'tuernummer', 'türnr', 'tuernr', 'qr', 'kennung'],
+  objekt: ['objekt', 'gebäude', 'gebaeude', 'liegenschaft', 'firma', 'kunde', 'objektname'],
+  position: ['position', 'pos', 'posnr', 'positionsnummer', 'lfdnr', 'nr', 'nummer'],
+  geschoss: ['geschoss', 'etage', 'stockwerk', 'ebene', 'og', 'floor'],
+  raum: ['raum', 'lage', 'standort', 'ort', 'bereich', 'raumnummer', 'bezeichnung'],
+  typ: ['typ', 'türtyp', 'tuertyp', 'art', 'feuerwiderstand', 'klasse', 'brandschutzklasse'],
+  hersteller: ['hersteller', 'fabrikat', 'marke'],
+  fluegel: ['flügel', 'fluegel', 'flügelanzahl', 'anzahlflügel', 'ausführung', 'ausfuehrung'],
+  feststellanlage: ['feststellanlage', 'fsa', 'feststeller', 'feststellung'],
+  intervall: ['intervall', 'prüfintervall', 'pruefintervall', 'monate'],
+  notiz: ['notiz', 'bemerkung', 'bemerkungen', 'hinweis', 'kommentar', 'info'],
+};
+
+const normHeader = (h) => String(h ?? '').toLowerCase().replace(/[\s._\-/()]+/g, '');
+
+/** Spaltenzuordnung aus Kopfzeile erraten → { feld: spaltenIndex } (-1 = keine) */
+export function guessMapping(headers) {
+  const map = {};
+  const used = new Set();
+  for (const f of IMPORT_FIELDS) {
+    const words = HEADER_WORDS[f.key];
+    let idx = headers.findIndex((h, i) => !used.has(i) && words.includes(normHeader(h)));
+    if (idx < 0) idx = headers.findIndex((h, i) => !used.has(i) && normHeader(h).length > 2 && words.some((w) => w.length > 3 && normHeader(h).includes(w)));
+    map[f.key] = idx;
+    if (idx >= 0) used.add(idx);
+  }
+  return map;
+}
+
+export function parseTyp(v) {
+  const s = String(v ?? '').toUpperCase().replace(/\s/g, '');
+  if (!s) return '';
+  if (/T-?30|EI2?30|EI30/.test(s)) return 'T30';
+  if (/T-?90|EI2?90/.test(s)) return 'T90';
+  if (/^RS|RAUCH|S200|SA$/.test(s)) return 'RS';
+  return 'sonstige';
+}
+
+export function parseBool(v) {
+  const s = String(v ?? '').trim().toLowerCase();
+  return ['ja', 'j', 'x', '1', 'true', 'wahr', 'yes', 'vorhanden', 'mit'].includes(s) ? 1 : 0;
+}
+
+export function parseFluegel(v) {
+  const s = String(v ?? '').trim().toLowerCase();
+  return /^2|zwei|2-?fl|doppel/.test(s) ? 1 : 0;
+}
+
+const cellStr = (v) => {
+  if (v === null || v === undefined) return '';
+  if (v instanceof Date) return isoDate(v);
+  return String(v).trim();
+};
+
+/**
+ * Zeilen → Türen. rows ohne Kopfzeile. Rückgabe { doors, errors }.
+ * doors[i] = { id ('' = automatisch), objekt ('' = Standardobjekt), position, …, zeile }
+ */
+export function mapImportRows(rows, mapping) {
+  const get = (r, k) => (mapping[k] >= 0 ? cellStr(r[mapping[k]]) : '');
+  const doors = [];
+  rows.forEach((r, n) => {
+    if (!r || !r.some((c) => cellStr(c))) return;
+    const d = {
+      zeile: n + 2,
+      id: get(r, 'id'),
+      objekt: get(r, 'objekt'),
+      position: get(r, 'position'),
+      geschoss: get(r, 'geschoss'),
+      raum: get(r, 'raum'),
+      typ: mapping.typ >= 0 ? parseTyp(get(r, 'typ')) : '',
+      hersteller: get(r, 'hersteller'),
+      zweifluegelig: mapping.fluegel >= 0 ? parseFluegel(get(r, 'fluegel')) : 0,
+      feststellanlage: mapping.feststellanlage >= 0 ? parseBool(get(r, 'feststellanlage')) : 0,
+      intervall: Math.min(120, Math.max(1, parseInt(get(r, 'intervall'), 10) || 12)),
+      notiz: get(r, 'notiz'),
+    };
+    const typRaw = get(r, 'typ');
+    if (d.typ === 'sonstige' && typRaw) d.notiz = [d.notiz, `Typ: ${typRaw}`].filter(Boolean).join('\n');
+    if (!d.id && !d.position && !d.geschoss && !d.raum) return; // Zeile ohne verwertbaren Inhalt
+    doors.push(d);
+  });
+  return doors;
+}
+
+/** Einfacher CSV-Parser (Trennzeichen ; oder , automatisch, Anführungszeichen) */
+export function parseCsv(text) {
+  text = text.replace(/^﻿/, '');
+  const first = text.split(/\r?\n/)[0] || '';
+  const sep = (first.match(/;/g) || []).length >= (first.match(/,/g) || []).length ? ';' : ',';
+  const rows = [];
+  let row = [];
+  let cur = '';
+  let q = false;
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i];
+    if (q) {
+      if (c === '"' && text[i + 1] === '"') { cur += '"'; i++; } else if (c === '"') q = false; else cur += c;
+    } else if (c === '"') q = true;
+    else if (c === sep) { row.push(cur); cur = ''; } else if (c === '\n' || c === '\r') {
+      if (c === '\r' && text[i + 1] === '\n') i++;
+      row.push(cur); rows.push(row); row = []; cur = '';
+    } else cur += c;
+  }
+  if (cur || row.length) { row.push(cur); rows.push(row); }
+  return rows;
+}
