@@ -1,0 +1,13 @@
+{
+  "appId": "de.brandschutz.pruefung",
+  "appName": "Brandschutz-Prüfung",
+  "webDir": "dist",
+  "android": {
+    "backgroundColor": "#f4f3ef"
+  },
+  "plugins": {
+    "CapacitorSQLite": {
+      "androidIsEncryption": false
+    }
+  }
+}
