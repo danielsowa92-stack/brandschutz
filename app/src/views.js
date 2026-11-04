@@ -15,6 +15,7 @@ import { buildExcel } from './excel.js';
 import { Share } from '@capacitor/share';
 import { buildBackup, restoreBackup, importLegacyData, detectFormat } from './backup.js';
 import { takePhoto, photoDataUrl, deletePhotoFiles } from './photos.js';
+import { checkForUpdate, openDownload, installedVersion } from './update.js';
 import { refreshNotifications, notificationSettingsHtml, bindNotificationSettings } from './notify.js';
 
 const today = () => isoDate();
@@ -65,6 +66,7 @@ async function homeView({ view }) {
   const orders = await repo.orderList();
   const tile = (href, n, label, cls) => `<a class="tile ${cls} ${n ? 'has' : ''}" href="${href}"><div class="tile-n">${n}</div><div class="tile-l">${label}</div></a>`;
   view.innerHTML = `
+    <div id="home-banners"></div>
     <button class="hero-scan" id="home-scan"><span class="ico">⌗</span>QR-Code scannen</button>
     ${!objects.length ? `
       <div class="card">
@@ -85,6 +87,56 @@ async function homeView({ view }) {
     </div>
     <a class="btn btn-block" href="#/suche">🔎 Tür manuell suchen (QR nicht lesbar)</a>`;
   $('#home-scan').onclick = startScanFlow;
+  homeBanners(due.doors.length);
+}
+
+// Hinweise auf der Startseite: Backup-Erinnerung und neue App-Version
+async function homeBanners(doorCount) {
+  const box = $('#home-banners');
+  if (!box) return;
+  const parts = [];
+  if (doorCount > 0) {
+    const last = await repo.getSetting('last_backup', null);
+    const days = last ? Math.floor((Date.now() - new Date(last).getTime()) / 86400000) : null;
+    if (days === null || days >= 30) {
+      parts.push(`<div class="card banner-wa">
+        <b>💾 ${days === null ? 'Noch kein Backup erstellt' : `Letztes Backup vor ${days} Tagen`}</b>
+        <p class="small" style="margin:4px 0 10px">Bei Verlust oder Defekt des Handys sind sonst alle Prüfdaten weg.</p>
+        <button class="btn btn-primary btn-block" id="bn-backup">Jetzt Backup erstellen & sichern</button></div>`);
+    }
+  }
+  box.innerHTML = parts.join('');
+  const b = $('#bn-backup');
+  if (b) b.onclick = makeBackup;
+  // Update-Prüfung im Hintergrund (nur mit Internet)
+  const upd = await checkForUpdate().catch(() => null);
+  if (upd && $('#home-banners') === box) {
+    box.insertAdjacentHTML('afterbegin', `<div class="card banner-ok">
+      <b>⬆️ Neue App-Version ${esc(upd.name)} verfügbar</b>
+      <p class="small" style="margin:4px 0 10px">Ihre Daten bleiben beim Update erhalten.</p>
+      <button class="btn btn-ok btn-block" id="bn-update">Update herunterladen</button></div>`);
+    $('#bn-update').onclick = updateFlow;
+  }
+}
+
+async function makeBackup() {
+  toast('Backup wird erstellt …');
+  const blob = await buildBackup();
+  await saveAndShare(`Brandschutz_Backup_${stamp()}.json`, blob, 'Brandschutz-Backup');
+  await repo.setSetting('last_backup', new Date().toISOString());
+  const box = $('#home-banners');
+  if (box) rerender();
+}
+
+async function updateFlow() {
+  const ok = await dialog({
+    title: 'Update installieren',
+    html: `<p>1. Die neue Version wird im Browser heruntergeladen.</p>
+      <p>2. Danach die Datei <b>Brandschutz-Pruefung.apk</b> antippen (Benachrichtigung oder „Downloads“) und <b>Aktualisieren</b> wählen.</p>
+      <p>Alle Daten bleiben erhalten. Zur Sicherheit wird vorher ein Backup empfohlen.</p>`,
+    buttons: [{ label: 'Abbrechen', value: false }, { label: 'Herunterladen', value: true, cls: 'btn-ok' }],
+  });
+  if (ok) await openDownload();
 }
 
 // =====================================================================
@@ -718,6 +770,7 @@ async function moreView({ view }) {
   setTitle('Export, Backup & Einstellungen', '', false);
   const objects = await repo.listObjects();
   const files = await listExports();
+  const lastBackup = await repo.getSetting('last_backup', null);
   view.innerHTML = `
     <div class="card">
       <div class="card-title">📊 Excel-Export (.xlsx)</div>
@@ -751,7 +804,21 @@ async function moreView({ view }) {
       <a class="btn btn-block" href="#/checkliste" style="margin-bottom:8px">Checkliste bearbeiten</a>
       ${await notificationSettingsHtml()}
     </div>
-    <p class="muted small" style="text-align:center;margin:1rem 0">Brandschutz-Prüfung · Version ${__APP_VERSION__}</p>`;
+    <div class="card">
+      <div class="card-title">ℹ️ App-Version</div>
+      <p class="small" style="margin-bottom:10px">Installiert: <b id="v-inst">…</b>${lastBackup ? ` · Letztes Backup: ${new Date(lastBackup).toLocaleDateString('de-DE')}` : ''}</p>
+      <button class="btn btn-block" id="v-check">Nach Updates suchen</button>
+    </div>`;
+  installedVersion().then((v) => { const el = $('#v-inst'); if (el) el.textContent = v.name; });
+  $('#v-check').onclick = async () => {
+    try {
+      const upd = await checkForUpdate(true);
+      if (upd) await updateFlow();
+      else toast('Die App ist aktuell');
+    } catch (e) {
+      alertDialog('Keine Verbindung', e.message);
+    }
+  };
 
   $('#x-go').onclick = async () => {
     const id = Number($('#x-obj').value) || null;
@@ -760,11 +827,7 @@ async function moreView({ view }) {
     const blob = await buildExcel(id);
     await saveAndShare(`Brandschutz_${o ? safeName(o.kuerzel) : 'alle'}_${stamp()}.xlsx`, blob, 'Excel-Export');
   };
-  $('#b-make').onclick = async () => {
-    toast('Backup wird erstellt …');
-    const blob = await buildBackup();
-    await saveAndShare(`Brandschutz_Backup_${stamp()}.json`, blob, 'Brandschutz-Backup');
-  };
+  $('#b-make').onclick = makeBackup;
   const readJson = async () => {
     const file = await pickFile('application/json,.json,text/plain,*/*');
     if (!file) return null;

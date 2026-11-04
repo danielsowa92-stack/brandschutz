@@ -7,8 +7,9 @@ android {
         applicationId "de.brandschutz.pruefung"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 1
-        versionName "1.0"
+        // Versionsnummer kommt aus dem CI-Build (fortlaufend), lokal 1
+        versionCode((System.getenv("VERSION_CODE") ?: "1") as Integer)
+        versionName System.getenv("VERSION_NAME") ?: "1.0-dev"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {
              // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.
@@ -19,8 +20,23 @@ android {
     packagingOptions {
         exclude 'build-data.properties'
     }
+    signingConfigs {
+        release {
+            // Fester Signaturschlüssel aus GitHub-Secrets → Updates ohne Neuinstallation/Datenverlust
+            def ks = System.getenv("KEYSTORE_FILE")
+            if (ks) {
+                storeFile file(ks)
+                storePassword System.getenv("KEYSTORE_PASSWORD")
+                keyAlias System.getenv("KEY_ALIAS") ?: "brandschutz"
+                keyPassword System.getenv("KEYSTORE_PASSWORD")
+            }
+        }
+    }
     buildTypes {
         release {
+            if (System.getenv("KEYSTORE_FILE")) {
+                signingConfig signingConfigs.release
+            }
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
         }

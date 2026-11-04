@@ -170,3 +170,5 @@ html.scanner-active body > *:not(#scanner-ui) { display: none !important; }
 .ce-tools button { width: 42px; height: 42px; border: 1px solid var(--b); background: #fff; border-radius: 8px; font-size: 16px; cursor: pointer; }
 .grid2 > * { min-width: 0; }
 input[type=date] { min-width: 0; max-width: 100%; }
+.banner-wa { background: var(--wab); border-color: #ecd3a8; color: var(--wa); }
+.banner-ok { background: var(--okb); border-color: #c4dcb0; color: var(--ok); }

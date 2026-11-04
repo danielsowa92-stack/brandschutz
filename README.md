@@ -11,29 +11,34 @@ Das Repository enthält zwei Versionen:
 
 ---
 
-## 1. APK herunterladen
+## 1. App herunterladen
 
-Die App wird bei jedem Push automatisch von GitHub gebaut.
+**Fester Download-Link (immer die neueste Version, ohne GitHub-Anmeldung):**
+https://github.com/danielsowa92-stack/brandschutz/releases/latest/download/Brandschutz-Pruefung.apk
 
-1. Auf GitHub im Repository oben auf **Actions** tippen.
-2. Den obersten grünen Lauf **„Android Debug-APK“** öffnen.
-3. Ganz unten unter **Artifacts** auf **Brandschutz-Pruefung-APK** tippen → es wird eine ZIP-Datei heruntergeladen.
-4. ZIP entpacken → darin liegt `Brandschutz-Pruefung-debug-xxxxxxx.apk`.
-
-> Hinweis: Zum Herunterladen von Artifacts muss man bei GitHub angemeldet sein. Artifacts werden 30 Tage aufbewahrt.
+Eine neue Version entsteht automatisch, sobald Änderungen in den Branch `main` übernommen werden (Pull Request „Merge“).
+Alle Versionen: https://github.com/danielsowa92-stack/brandschutz/releases
 
 ## 2. Auf Android installieren
 
-1. Die APK-Datei aufs Handy bringen (direkt am Handy herunterladen, per USB-Kabel, Google Drive o. Ä.).
-2. Im Dateimanager auf die APK tippen.
-3. Android fragt nach **„Installation aus unbekannten Quellen“** → für den Dateimanager/Browser erlauben.
-4. **Installieren** tippen. Evtl. warnt Google Play Protect, weil die App nicht aus dem Play Store kommt → „Trotzdem installieren“.
-5. Beim ersten Scan fragt die App nach der **Kamera-Berechtigung** → erlauben.
-
-**Update:** Neue APK einfach drüber installieren – die Daten bleiben erhalten.
-**Wichtig:** Vor dem Deinstallieren immer ein Backup machen, sonst sind die Daten weg.
+1. Den Link oben am Handy öffnen → `Brandschutz-Pruefung.apk` wird heruntergeladen.
+2. Datei antippen (Benachrichtigung oder App „Dateien“ → Downloads).
+3. Android fragt nach **„Installation aus unbekannten Quellen“** → für Browser/Dateimanager erlauben.
+4. **Installieren** tippen. Warnt Google Play Protect („unbekannte App“) → „Trotzdem installieren“.
+5. Beim ersten Scan nach der **Kamera-Berechtigung** fragen lassen → erlauben.
 
 Voraussetzung: Android 7.0 oder neuer.
+
+## Updates – ohne Datenverlust
+
+- Hat das Handy Internet, zeigt die App auf der Startseite **„Neue App-Version verfügbar“** → *Update herunterladen* → APK antippen → **Aktualisieren**.
+- Manuell: **Mehr → App-Version → Nach Updates suchen**, oder einfach den Download-Link oben erneut öffnen.
+- Die Daten bleiben beim Update erhalten. Änderungen an der Datenbank werden beim ersten Start automatisch übernommen.
+- **Niemals die App deinstallieren** – dabei löscht Android alle Daten. Falls doch nötig: vorher Backup!
+- Die App erinnert auf der Startseite an ein Backup, wenn das letzte älter als 30 Tage ist.
+
+Warum das funktioniert: Jede Version ist mit demselben Schlüssel signiert und hat eine höhere Versionsnummer (fortlaufende Build-Nummer).
+Android akzeptiert nur Updates mit gleicher Signatur – deshalb ist der Schlüssel wichtig (siehe unten).
 
 ## 3. Bedienung (Kurzfassung)
 
@@ -90,6 +95,20 @@ So werden die Daten übernommen:
 
 ---
 
+## Einrichtung (einmalig, für den Betreuer)
+
+Damit Updates funktionieren, braucht GitHub den Signaturschlüssel als **Secret**:
+
+1. GitHub → Repository → **Settings → Secrets and variables → Actions → New repository secret**
+2. Secret `KEYSTORE_BASE64` = Inhalt der Datei `keystore-base64.txt` (eine lange Zeile)
+3. Secret `KEYSTORE_PASSWORD` = Inhalt von `keystore-passwort.txt`
+
+Ohne diese Secrets baut GitHub nur eine Debug-APK (Warnung im Actions-Lauf), die **nicht** updatefähig ist, und es wird kein Release veröffentlicht.
+
+> ⚠️ Die Datei `brandschutz-release.keystore` und das Passwort zusätzlich **sicher aufbewahren** (z. B. Passwort-Manager, USB-Stick).
+> GitHub-Secrets lassen sich nicht wieder auslesen. Geht der Schlüssel verloren, kann keine Update-Version mehr gebaut werden –
+> dann wäre eine Neuinstallation mit Backup/Wiederherstellung nötig.
+
 ## Für Entwickler
 
 ```bash
@@ -100,6 +119,8 @@ npm test           # Unit-Tests der Logik
 npm run sync       # Web-App bauen und ins Android-Projekt kopieren
 cd android && ./gradlew assembleDebug
 ```
+
+Änderungen an der Datenbankstruktur **nur als neue Migration** in `app/src/db.js` (Array `MIGRATIONS` ergänzen), nie bestehende ändern – so werden vorhandene Daten beim Update automatisch angepasst.
 
 Technik: Capacitor 8, Vite, Vanilla-JS (keine Framework-Abhängigkeit), SQLite über `@capacitor-community/sqlite`,
 QR-Scan über ML Kit (`@capacitor-mlkit/barcode-scanning`, gebündeltes Modell → offline), `qrcode`, `jspdf` + `jspdf-autotable`,
