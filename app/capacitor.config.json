@@ -8,6 +8,9 @@
   "plugins": {
     "CapacitorSQLite": {
       "androidIsEncryption": false
+    },
+    "SystemBars": {
+      "style": "DARK"
     }
   }
 }

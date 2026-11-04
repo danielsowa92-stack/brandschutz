@@ -148,10 +148,13 @@ async function webImpl() {
 
 export async function initDb() {
   impl = Capacitor.isNativePlatform() ? await nativeImpl() : await webImpl();
-  const v = (await impl.all('PRAGMA user_version'))[0]?.user_version || 0;
+  // Schema-Version in der Tabelle settings (robuster als PRAGMA user_version über das Plugin)
+  await impl.exec('CREATE TABLE IF NOT EXISTS settings(key TEXT PRIMARY KEY, value TEXT);');
+  const row = (await impl.all("SELECT value FROM settings WHERE key = 'schema_version'"))[0];
+  const v = Number(row?.value || 0);
   for (let i = v; i < MIGRATIONS.length; i++) {
     await impl.exec(MIGRATIONS[i]);
-    await impl.exec(`PRAGMA user_version = ${i + 1}`);
+    await impl.run("INSERT OR REPLACE INTO settings(key, value) VALUES ('schema_version', ?)", [String(i + 1)]);
   }
 }
 

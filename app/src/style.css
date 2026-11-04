@@ -3,8 +3,8 @@
   --bg: #f4f3ef; --s: #fff; --b: #e3e1d9; --t: #181816; --m: #6a6a64;
   --ok: #2d6a3f; --okb: #eaf3de; --wa: #7c4a0a; --wab: #faeeda; --da: #a32d2d; --dab: #fcebeb;
   --rad: 12px; --rads: 8px;
-  --safe-top: env(safe-area-inset-top, 0px);
-  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-top: var(--safe-area-inset-top, env(safe-area-inset-top, 0px));
+  --safe-bottom: var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px));
 }
 * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
 html, body { background: var(--bg); }
